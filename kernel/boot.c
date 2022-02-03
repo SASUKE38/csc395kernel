@@ -134,16 +134,47 @@ void kprint_p(void* ptr) {
 }
 
 void kprintf(const char* format, ...) {
-  // Start processing variable arguments
+  // Start processing variadic arguments
   va_list args;
   va_start(args, format);
 
-  int n = va_arg(args, int);
-  char* s = va_arg(args, char *);
-  kprint_d(n);
-  kprint_s(s);
+  // Loop until we reach the end of the format string
+  size_t index = 0;
+  while (format[index] != '\0') {
+    // Is the current charater a '%'?
+    if (format[index] == '%') {
+      // Yes, print the argument
+      index++;
+      switch(format[index]) {
+        case '%':
+          kprint_c('%');
+          break;
+        case 'c':
+          kprint_c(va_arg(args, int));
+          break;
+        case 's':
+          kprint_s(va_arg(args, char*));
+          break;
+        case 'd':
+          kprint_d(va_arg(args, uint64_t));
+          break;
+        case 'x':
+          kprint_x(va_arg(args, int64_t));
+          break;
+        case 'p':
+          kprint_p(va_arg(args, void*));
+          break;
+        default:
+          kprint_s("<not supported>");
+      }
+    } else {
+      // No, just a normal character. Print it.
+      kprint_c(format[index]);
+    }
+    index++;
+  }
 
-  // Done with variable arguments
+  // Finish handling variadic arguments
   va_end(args);
 }
 
@@ -152,6 +183,7 @@ void print_mem_address(struct stivale2_struct* hdr) {
   // Find the hhdm and memmap tags in the list
   struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, 0xb0ed257db18cb58f);
   struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, 0x2187f79e8612de07);
+  uint64_t memmap_base;
   uint64_t memmap_end;
   uint64_t hhdm_addr = hhdm_tag->addr;
 
@@ -160,19 +192,11 @@ void print_mem_address(struct stivale2_struct* hdr) {
   for (int i = 0; i < memmap_tag->entries; i++) {
     // If the entry is usable, process it
     if (memmap_tag->memmap[i].type == 1) {
-      // Calculate the end address of the usable range
-      memmap_end = memmap_tag->memmap[i].base + memmap_tag->memmap[i].length;
-      // Print the necessary values and conversions to physical memory. CHANGE TO KPRINTF WHEN FINISHED
-      // Physical
-      kprint_p((void*) memmap_tag->memmap[i].base);
-      kprint_c('-');
-      kprint_p((void*) memmap_end);
-      kprint_s(" mapped at ");
-      // Virtual
-      kprint_p((void*) (memmap_tag->memmap[i].base + hhdm_addr));
-      kprint_c('-');
-      kprint_p((void*) (memmap_end + hhdm_addr));
-      kprint_c('\n');
+      // Find the start and end address of the usable range
+      memmap_base = memmap_tag->memmap[i].base;
+      memmap_end = memmap_base + memmap_tag->memmap[i].length;
+      // Print the necessary values and conversions to physical memory.
+      kprintf("%p-%p mapped at %p-%p\n", (void*) memmap_base, (void*) memmap_end, (void*) (memmap_base + hhdm_addr), (void*) (memmap_end + hhdm_addr));
     }
   }
 }
@@ -181,25 +205,6 @@ void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
   print_mem_address(hdr);
-
-  /*
-  // Print a greeting
-  term_write("Hello Kernel!\n", 14);
-  kprint_c('a');
-  kprint_c('\n');
-  kprint_s("string test\n");
-  kprint_d(123);
-  kprint_c('\n');
-  kprint_x(453);
-  kprint_c('\n');
-  int num = 34;
-  int* test = NULL;
-  test = &num;
-  kprint_p(test);
-  */
-
-  //kprintf("%d\n", 56);
-  //kprintf("some format", 123, "hello");
 
 	// We're done, just hang...
 	halt();
