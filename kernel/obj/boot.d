@@ -1,7 +1,7 @@
-obj/boot.o: boot.c stivale2.h util.h strlib.h
+obj/boot.o: boot.c stivale2.h util.h kprint.h
 
 stivale2.h:
 
 util.h:
 
-strlib.h:
+kprint.h:
