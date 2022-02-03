@@ -187,7 +187,7 @@ void print_mem_address(struct stivale2_struct* hdr) {
   uint64_t memmap_end;
   uint64_t hhdm_addr = hhdm_tag->addr;
 
-  kprint_s("Usable Memory:\n");
+  kprintf("Usable Memory:\n");
   // Loop over the entries of the memmap
   for (int i = 0; i < memmap_tag->entries; i++) {
     // If the entry is usable, process it
