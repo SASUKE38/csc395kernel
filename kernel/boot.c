@@ -163,10 +163,12 @@ void print_mem_address(struct stivale2_struct* hdr) {
       // Calculate the end address of the usable range
       memmap_end = memmap_tag->memmap[i].base + memmap_tag->memmap[i].length;
       // Print the necessary values and conversions to physical memory. CHANGE TO KPRINTF WHEN FINISHED
+      // Physical
       kprint_p((void*) memmap_tag->memmap[i].base);
       kprint_c('-');
       kprint_p((void*) memmap_end);
       kprint_s(" mapped at ");
+      // Virtual
       kprint_p((void*) (memmap_tag->memmap[i].base + hhdm_addr));
       kprint_c('-');
       kprint_p((void*) (memmap_end + hhdm_addr));
