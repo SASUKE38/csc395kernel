@@ -5,15 +5,22 @@
 #include "util.h"
 
 #include "kprint.h"
+#include "idt.h"
 
 // Reserve space for the stack
 static uint8_t stack[8192];
+
+// Request 0x0 be unmapped
+static struct stivale2_tag unmap_null_hdr_tag = {
+  .identifier = STIVALE2_HEADER_TAG_UNMAP_NULL_ID,
+  .next = 0
+};
 
 // Request a terminal from the bootloader
 static struct stivale2_header_tag_terminal terminal_hdr_tag = {
 	.tag = {
     .identifier = STIVALE2_HEADER_TAG_TERMINAL_ID,
-    .next = 0
+    .next = (uintptr_t)&unmap_null_hdr_tag // Changed from 0
   },
   .flags = 0
 };
@@ -86,7 +93,8 @@ void print_mem_address(struct stivale2_struct* hdr) {
       memmap_base = memmap_tag->memmap[i].base;
       memmap_end = memmap_base + memmap_tag->memmap[i].length;
       // Print the necessary values and conversions to virtual memory.
-      kprintf("%p-%p mapped at %p-%p\n", (void*) memmap_base, (void*) memmap_end, (void*) (memmap_base + hhdm_addr), (void*) (memmap_end + hhdm_addr));
+      kprintf("%p-%p mapped at %p-%p\n", (void*) memmap_base, (void*) memmap_end, 
+        (void*) (memmap_base + hhdm_addr), (void*) (memmap_end + hhdm_addr));
     }
   }
 }
@@ -94,7 +102,12 @@ void print_mem_address(struct stivale2_struct* hdr) {
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
+  // Initialize interrupt descriptor table
+  idt_setup();
+  // Print usable memory ranges
   print_mem_address(hdr);
+
+  __asm__("int $15");
 
 	// We're done, just hang...
 	halt();

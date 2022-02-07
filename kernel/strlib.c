@@ -4,7 +4,6 @@ void* memset(void* s, int c, size_t n) {
   int* mem_area = (int*) s;
   for (int i = 0; i < n; i++) {
     mem_area[i] = c;
-    mem_area++;
   }
   return s;
 }
