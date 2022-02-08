@@ -103,9 +103,12 @@ void print_mem_address(struct stivale2_struct* hdr) {
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
+  // Initialize PIC
+  pic_init();
   // Initialize interrupt descriptor table
   idt_setup();
-  pic_init();
+  pic_unmask_irq(1);
+
   // Print usable memory ranges
   print_mem_address(hdr);
 

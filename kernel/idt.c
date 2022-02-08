@@ -3,6 +3,8 @@
 #include "util.h"
 #include "kprint.h"
 #include "strlib.h"
+#include "pic.h"
+#include "port.h"
 
 typedef struct interrupt_context {
   uintptr_t ip;
@@ -139,6 +141,12 @@ void control_protection_exception_handler(interrupt_context_t* ctx, uint64_t ec)
   halt();
 }
 
+__attribute__((interrupt))
+void irq1_interrupt_handler(interrupt_context_t* ctx) {
+  kprintf("%p\n", inb(0x60));
+  outb(PIC1_COMMAND, PIC_EOI);
+}
+
 // Every interrupt handler must specify a code selector. We'll use entry 5 (5*8=0x28), which
 // is where our bootloader set up a usable code selector for 64-bit mode.
 #define IDT_CODE_SELECTOR 0x28
@@ -223,6 +231,7 @@ void idt_setup() {
   idt_set_handler(19, &simd_floating_point_exception_handler, IDT_TYPE_TRAP);
   idt_set_handler(20, &virtualization_exception_handler, IDT_TYPE_TRAP);
   idt_set_handler(21, &control_protection_exception_handler, IDT_TYPE_TRAP);
+  idt_set_handler(IRQ1_INTERRUPT, &irq1_interrupt_handler, IDT_TYPE_INTERRUPT);
 
   // Install the IDT
   idt_record_t record = {
