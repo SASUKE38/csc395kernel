@@ -5,6 +5,7 @@
 #include "strlib.h"
 #include "pic.h"
 #include "port.h"
+#include "key.h"
 
 typedef struct interrupt_context {
   uintptr_t ip;
@@ -143,7 +144,8 @@ void control_protection_exception_handler(interrupt_context_t* ctx, uint64_t ec)
 
 __attribute__((interrupt))
 void irq1_interrupt_handler(interrupt_context_t* ctx) {
-  kprintf("%p\n", inb(0x60));
+  handle_press(inb(0x60));
+  //kprintf("%p\n", inb(0x60));
   outb(PIC1_COMMAND, PIC_EOI);
 }
 
