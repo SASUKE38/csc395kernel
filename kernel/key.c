@@ -4,6 +4,8 @@
 #include "kprint.h"
 #include "ctype.h"
 
+#define BUFFER_SIZE 2000
+
 bool left_shift = 0;
 bool right_shift = 0;
 bool num_lock = 0;
@@ -37,8 +39,29 @@ uint8_t keys[] = {27 /*escape*/, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48 /*number
                   133, 134, 135, 136, 137, 138, 139, 140, 141, 142 /*F1-F10*/, 143 /*Num Lock*/, 144 /*scroll lock*/,
                   55, 56, 57 /*keypad 7-9*/, 45 /*keypad minus*/, 52, 53, 54 /*keypad 4-6*/, 43 /*keypad plus*/,
                   49, 50, 51, 48 /*keypad 1-3, 0*/, 46 /*keypad period*/, 147, 147, 147, 145, 146 /*F11, F12*/};
+                  
+uint8_t key_buffer[BUFFER_SIZE];
+int buffer_read = 0;
+int buffer_write = 0;
+volatile int buffer_count = 0;
+
+// Adds a character to the keyboard buffer. Returns the added character if successful, 0 otherwise.
+char add_to_buffer(uint8_t key) {
+  if (buffer_count != BUFFER_SIZE) {
+    key_buffer[buffer_write++] = key;
+    buffer_write %= BUFFER_SIZE;
+    buffer_count++;
+    //kprintf("added %c\n", key);
+    return key;
+  }
+  return 0;
+}
 
 void handle_press(uint8_t key_code) {
+  if (key_code == 0xAA) { // for testing, probably don't keep?
+    left_shift = 0;
+    return;
+  }
   if (key_code > 0x58) return;
   uint8_t key = keys[key_code - 1];
   if (key <= 146 && key >= 128) {
@@ -58,6 +81,7 @@ void handle_press(uint8_t key_code) {
         break;
       case 132:
         caps_lock = !caps_lock;
+        break;
       case 143:
         num_lock = !num_lock;
         break;
@@ -71,13 +95,30 @@ void handle_press(uint8_t key_code) {
   } else if (key == 147) {
     kprintf("Unexpected scan code\n");
   } else {
+    // this if statement seems to be causing shift to break character inputs
     if (left_shift || right_shift) {
       if (isalpha(key)) {
-        kprintf("%c", toupper(key));
+        add_to_buffer(toupper(key));
+        //kprintf("%c", toupper(key));
       }
     }
     else {
-      kprintf("%c", key);
+      add_to_buffer(key);
+      //kprintf("%c", key);
     }
   }
+}
+
+/**
+ * Read one character from the keyboard buffer. If the keyboard buffer is empty this function will
+ * block until a key is pressed.
+ *
+ * \returns the next character input from the keyboard
+ */
+char kgetc() {
+  while (buffer_count == 0) {}
+  char result = key_buffer[buffer_read++];
+  buffer_read %= BUFFER_SIZE;
+  buffer_count--;
+  return result;
 }

@@ -12,19 +12,19 @@ int isdigit(int c) {
 
 // Returns 1 if c is a lowercase letter, 0 otherwise.
 int islower(int c) {
-  if (isalpha(c) && (c >= 65 && c <= 90)) return 1;
+  if (c >= 65 && c <= 90) return 1;
   else return 0;
 }
 
 // Returns 1 if c is an uppercae letter, 0 otherwise.
 int isupper(int c) {
-  if (isalpha(c) && (c >= 97 && c <= 122)) return 1;
+  if (c >= 97 && c <= 122) return 1;
   else return 0;
 }
 
 // Returns the corresponding uppercase letter if c is a lowercase letter, c otherwise.
 int toupper(int c) {
-  if (!isupper(c)) {
+  if (isupper(c) == 1) {
     return c - 32;
   }
   else return c;
@@ -32,7 +32,7 @@ int toupper(int c) {
 
 // Returns the corresponding lowercase letter if c is a uppercase letter, c otherwise.
 int tolower(int c) {
-  if (!islower(c)) {
+  if (islower(c) == 1) {
     return c + 32;
   }
   else return c;

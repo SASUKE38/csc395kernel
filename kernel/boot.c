@@ -7,6 +7,7 @@
 #include "kprint.h"
 #include "idt.h"
 #include "pic.h"
+#include "key.h"
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -111,6 +112,10 @@ void _start(struct stivale2_struct* hdr) {
 
   // Print usable memory ranges
   print_mem_address(hdr);
+
+  while (1) {
+    kprintf("%c", kgetc());
+  }
 
 	// We're done, just hang...
 	halt();
