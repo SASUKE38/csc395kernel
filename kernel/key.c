@@ -58,8 +58,12 @@ char add_to_buffer(uint8_t key) {
 }
 
 void handle_press(uint8_t key_code) {
-  if (key_code == 0xAA) { // for testing, probably don't keep?
+  if (key_code == 0xAA) {
     left_shift = 0;
+    return;
+  }
+  if (key_code == 0xB6) {
+    right_shift = 0;
     return;
   }
   if (key_code > 0x58) return;
@@ -95,16 +99,31 @@ void handle_press(uint8_t key_code) {
   } else if (key == 147) {
     kprintf("Unexpected scan code\n");
   } else {
-    // this if statement seems to be causing shift to break character inputs
-    if (left_shift || right_shift) {
+    // handle caps lock
+    if (caps_lock && left_shift == 0 && right_shift == 0) {
       if (isalpha(key)) {
         add_to_buffer(toupper(key));
-        //kprintf("%c", toupper(key));
+        return;
+      }
+      else { // print a lower case letter if shift is pressed
+        add_to_buffer(key);
+        return;
+      }
+    }
+    // handle shift
+    if (left_shift || right_shift) {
+      if (caps_lock) { // don't capitalize if shift is pressed
+        add_to_buffer(key);
+        return;
+      }
+      if (isalpha(key)) {
+        add_to_buffer(toupper(key));
+        return;
       }
     }
     else {
       add_to_buffer(key);
-      //kprintf("%c", key);
+      return;
     }
   }
 }
@@ -121,4 +140,34 @@ char kgetc() {
   buffer_read %= BUFFER_SIZE;
   buffer_count--;
   return result;
+}
+
+/**
+ * Read a line of characters from the keyboard. Read characters until the buffer fills or a newline
+ * character is read. If input ends with a newline, the newline character is stored in output. The
+ * string written to output is always null terminated unless the function fails for some reason.
+ *
+ * \param output A pointer to the beginning of an array where this function should store characters.
+ *               This function will write a null terminator into the output array unless it fails.
+ * \param capacity The number of characters that can safely be written to the output array
+ *                 including the final null termiantor.
+ * \returns The number of characters read, or zero if no characters were read due to an error.
+ */
+size_t kgets(char* output, size_t capacity) {
+  char current_char;
+  int num_read = 0;
+  while (num_read < capacity - 1) {
+    current_char = kgetc();
+    if (current_char == 0 && num_read == 0) {
+      return 0;
+    } else if (current_char == '\n') {
+      output[num_read++] = current_char;
+      break;
+    } else {
+      output[num_read] = current_char;
+      num_read++;
+    }
+  }
+  output[num_read] = '\0';
+  return num_read;
 }

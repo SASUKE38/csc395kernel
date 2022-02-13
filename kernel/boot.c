@@ -113,8 +113,14 @@ void _start(struct stivale2_struct* hdr) {
   // Print usable memory ranges
   print_mem_address(hdr);
 
+  char* test_string = "aaaaaaaaaa";
+  int num_read = 0;
+
   while (1) {
-    kprintf("%c", kgetc());
+    kprintf("Line: \n");
+    num_read = kgets(test_string, 10);
+    kprintf("%s, %d",test_string, num_read);
+    kprintf("\n");
   }
 
 	// We're done, just hang...
