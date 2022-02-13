@@ -39,6 +39,19 @@ uint8_t keys[] = {27 /*escape*/, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48 /*number
                   133, 134, 135, 136, 137, 138, 139, 140, 141, 142 /*F1-F10*/, 143 /*Num Lock*/, 144 /*scroll lock*/,
                   55, 56, 57 /*keypad 7-9*/, 45 /*keypad minus*/, 52, 53, 54 /*keypad 4-6*/, 43 /*keypad plus*/,
                   49, 50, 51, 48 /*keypad 1-3, 0*/, 46 /*keypad period*/, 147, 147, 147, 145, 146 /*F11, F12*/};
+
+// ACII character codes indexed by non-capital equivalent in scan code set 1 table. Used for non-alphabetic
+// characters pressed when shift is pressed.
+uint8_t alternate_keys[] = {27 /*escape*/, 33, 64, 35, 36, 37, 94, 38, 42, 40, 41 /*numbers 1-9, 0*/, 
+                  95 /*minus*/, 43 /*equals*/, 8 /*backspace*/, 9 /*tab*/, 113, 119, 101, 114, 116,
+                  121, 117, 105, 111, 112 /*q-p*/, 123, 125 /*left and right brackets*/, 10 /*enter (newline)*/,
+                  128 /*left control*/, 97, 115, 100, 102, 103, 104, 106, 107, 108 /*a-l*/, 58 /*semicolon*/, 
+                  34 /*single quote*/, 126 /*back tick (grave, accent)*/, 129 /*left shift*/, 124 /*backslash*/,
+                  122, 120, 99, 118, 98, 110, 109 /*z-m*/, 60 /*comma*/, 62 /*period*/, 63 /*forward slash*/,
+                  130 /*right shift*/, 42 /*keypad asterisk*/, 131 /*left alt*/, 32 /*space*/, 132 /*caps lock*/,
+                  133, 134, 135, 136, 137, 138, 139, 140, 141, 142 /*F1-F10*/, 143 /*Num Lock*/, 144 /*scroll lock*/,
+                  55, 56, 57 /*keypad 7-9*/, 45 /*keypad minus*/, 52, 53, 54 /*keypad 4-6*/, 43 /*keypad plus*/,
+                  49, 50, 51, 48 /*keypad 1-3, 0*/, 46 /*keypad period*/, 147, 147, 147, 145, 146 /*F11, F12*/};
                   
 uint8_t key_buffer[BUFFER_SIZE];
 int buffer_read = 0;
@@ -51,7 +64,6 @@ char add_to_buffer(uint8_t key) {
     key_buffer[buffer_write++] = key;
     buffer_write %= BUFFER_SIZE;
     buffer_count++;
-    //kprintf("added %c\n", key);
     return key;
   }
   return 0;
@@ -119,6 +131,8 @@ void handle_press(uint8_t key_code) {
       if (isalpha(key)) {
         add_to_buffer(toupper(key));
         return;
+      } else {
+        add_to_buffer(alternate_keys[key_code - 1]);
       }
     }
     else {
@@ -164,8 +178,7 @@ size_t kgets(char* output, size_t capacity) {
       output[num_read++] = current_char;
       break;
     } else {
-      output[num_read] = current_char;
-      num_read++;
+      output[num_read++] = current_char;
     }
   }
   output[num_read] = '\0';

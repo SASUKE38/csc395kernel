@@ -117,11 +117,15 @@ void _start(struct stivale2_struct* hdr) {
   int num_read = 0;
 
   while (1) {
+    kprintf("%c", kgetc());
+  }
+
+  /*while (1) {
     kprintf("Line: \n");
     num_read = kgets(test_string, 10);
     kprintf("%s, %d",test_string, num_read);
     kprintf("\n");
-  }
+  }*/
 
 	// We're done, just hang...
 	halt();
