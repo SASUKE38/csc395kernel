@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -8,6 +9,9 @@
 #include "idt.h"
 #include "pic.h"
 #include "key.h"
+#include "page.h"
+
+uint64_t hhdm_base_global;
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -101,9 +105,15 @@ void print_mem_address(struct stivale2_struct* hdr) {
   }
 }
 
+void* phys_to_vir(void* ptr) {
+  return (void*) (hhdm_base_global + (uint64_t) ptr);
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
+  struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, 0xb0ed257db18cb58f);
+  hhdm_base_global = hhdm_tag->addr;
   // Initialize PIC
   pic_init();
   // Initialize interrupt descriptor table
@@ -113,8 +123,11 @@ void _start(struct stivale2_struct* hdr) {
   // Print usable memory ranges
   print_mem_address(hdr);
 
-  char* test_string = "aaaaaaaaaa";
-  int num_read = 0;
+  //uintptr_t cr3_ptr = read_cr3();
+  translate(_start);
+
+  /*char* test_string = "aaaaaaaaaa";
+  int num_read = 0;*/
 
   while (1) {
     kprintf("%c", kgetc());
@@ -130,3 +143,18 @@ void _start(struct stivale2_struct* hdr) {
 	// We're done, just hang...
 	halt();
 }
+
+/*
+512 entries in table, 8 bytes long (64 bits)
+11:0 offset
+20:12 level 1
+29:21 level 2
+30:38 level 3
+39:47 level 4
+63:48 ignored, share most significatnt bit of level 4
+FIGURE 4.8
+
+FIGURE 4-17
+bits 0,1,2, 3,4, and 6 should be zero. 6 might only exist (dirty bit) on lower levels, 7 should be zero, 
+BIT 12 pointer
+*/

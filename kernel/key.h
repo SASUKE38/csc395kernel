@@ -2,7 +2,12 @@
 
 #include <stdint.h>
 
-// Converts a scan code into a character and prints if appropriate.
+/**
+ * Converts a scan code into a character based on scan code set 1. 
+ * The converted character is added to the buffer
+ * of characters read from the keyboard.
+ * https://wiki.osdev.org/PS2_Keyboard#Scan_Code_Set_1
+ */
 void handle_press(uint8_t key_code);
 
 /**

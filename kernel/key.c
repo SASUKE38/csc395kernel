@@ -29,6 +29,7 @@ bool right_control = 0;
 // 146 = F12
 
 // ASCII character codes indexed by scan code set 1 table
+// https://wiki.osdev.org/PS2_Keyboard#Scan_Code_Set_1
 uint8_t keys[] = {27 /*escape*/, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48 /*numbers 1-9, 0*/, 
                   45 /*minus*/, 61 /*equals*/, 8 /*backspace*/, 9 /*tab*/, 113, 119, 101, 114, 116,
                   121, 117, 105, 111, 112 /*q-p*/, 91, 93 /*left and right brackets*/, 10 /*enter (newline)*/,
@@ -69,6 +70,12 @@ char add_to_buffer(uint8_t key) {
   return 0;
 }
 
+/**
+ * Converts a scan code into a character based on scan code set 1. 
+ * The converted character is added to the buffer
+ * of characters read from the keyboard.
+ * https://wiki.osdev.org/PS2_Keyboard#Scan_Code_Set_1
+ */
 void handle_press(uint8_t key_code) {
   if (key_code == 0xAA) {
     left_shift = 0;
