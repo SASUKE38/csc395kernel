@@ -105,8 +105,39 @@ void print_mem_address(struct stivale2_struct* hdr) {
   }
 }
 
+uint16_t get_mem_address(struct stivale2_struct* hdr, uint64_t* result) {
+  // Find the hhdm and memmap tags in the list
+  struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, 0x2187f79e8612de07);
+  uint64_t memmap_base;
+  uint64_t memmap_end;
+  uint16_t index = 0;
+
+  // Loop over the entries of the memmap
+  for (int i = 0; i < memmap_tag->entries; i++) {
+    // If the entry is usable, process it
+    if (memmap_tag->memmap[i].type == 1) {
+      // Find the start and end address of the usable range
+      memmap_base = memmap_tag->memmap[i].base;
+      memmap_end = memmap_base + memmap_tag->memmap[i].length;
+      result[index++] = memmap_base;
+      result[index++] = memmap_end;
+    }
+  }
+  return index;
+}
+
 void* phys_to_vir(void* ptr) {
   return (void*) (hhdm_base_global + (uint64_t) ptr);
+}
+
+uint64_t read_cr0() {
+  uintptr_t value;
+  __asm__("mov %%cr0, %0" : "=r" (value));
+  return value;
+}
+
+void write_cr0(uint64_t value) {
+  __asm__("mov %0, %%cr0" : : "r" (value));
 }
 
 void _start(struct stivale2_struct* hdr) {
@@ -124,10 +155,74 @@ void _start(struct stivale2_struct* hdr) {
   print_mem_address(hdr);
 
   //uintptr_t cr3_ptr = read_cr3();
-  translate(_start);
+  //translate(_start);
+
+  // Enable write protection
+  uint64_t cr0 = read_cr0();
+  cr0 |= 0x10000;
+  write_cr0(cr0);
+
+  uint64_t get_addr_result[10];
+  uint64_t start[10];
+  uint64_t end[10];
+  uint16_t num_read;
+
+  // Fill array to pass to freelist_init
+  num_read = get_mem_address(hdr, get_addr_result);
+  start[0] = get_addr_result[0];
+  start[1] = get_addr_result[2];
+  end[0] = get_addr_result[1];
+  end[1] = get_addr_result[3];
+  freelist_init(start, end, 1);
+  kprintf("\n");
+  /*uintptr_t test_ptr1 = pmem_alloc();
+  uintptr_t test_ptr2 = pmem_alloc();
+  uintptr_t test_ptr3 = pmem_alloc();
+  uintptr_t test_ptr4 = pmem_alloc();
+  uintptr_t test_ptr5 = pmem_alloc();
+  kprintf("Test 1: %p\n", test_ptr1);
+  kprintf("Test 2: %p\n", test_ptr2);
+  kprintf("Test 3: %p\n", test_ptr3);
+  kprintf("Test 4: %p\n", test_ptr4);
+  kprintf("Test 5: %p\n", test_ptr5);
+  pmem_free(test_ptr1);
+  uintptr_t test_ptr6 = pmem_alloc();
+  kprintf("Test 6: %p\n", test_ptr6);
+  pmem_free(test_ptr2);
+  uintptr_t test_ptr7 = pmem_alloc();
+  kprintf("Test 7: %p\n", test_ptr7);
+  uintptr_t test_ptr8 = pmem_alloc();
+  kprintf("Test 8: %p\n", test_ptr8);*/
 
   /*char* test_string = "aaaaaaaaaa";
   int num_read = 0;*/
+
+  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  int* p = (int*)0x50004000;
+  bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  if (result) {
+    *p = 123;
+    kprintf("Stored %d at %p\n", *p, p);
+  } else {
+    kprintf("vm_map failed with an error\n");
+  }
+
+  result = vm_map(root, (uintptr_t)p, false, true, false);
+  if (result) {
+    kprintf("no error\n");
+  } else {
+    kprintf("didn't overwrite %d\n", *p);
+  }
+
+  result = vm_unmap(root, (uintptr_t)p);
+  if (result == true) {
+    kprintf("unmapped %p\n", p);
+  } else {
+    kprintf("unmap fauled\n");
+  }
+
+  *p = 1234;
+  kprintf("%d", *p);
 
   while (1) {
     kprintf("%c", kgetc());
