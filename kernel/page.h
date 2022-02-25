@@ -1,5 +1,11 @@
 #pragma once
 
+void print_freelist(int num_print);
+
+uint64_t read_cr0();
+
+void write_cr0(uint64_t value);
+
 uintptr_t read_cr3();
 
 /**

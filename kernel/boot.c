@@ -11,6 +11,8 @@
 #include "key.h"
 #include "page.h"
 
+#define MAX_MEM_SECTIONS 10
+
 uint64_t hhdm_base_global;
 
 // Reserve space for the stack
@@ -130,16 +132,6 @@ void* phys_to_vir(void* ptr) {
   return (void*) (hhdm_base_global + (uint64_t) ptr);
 }
 
-uint64_t read_cr0() {
-  uintptr_t value;
-  __asm__("mov %%cr0, %0" : "=r" (value));
-  return value;
-}
-
-void write_cr0(uint64_t value) {
-  __asm__("mov %0, %%cr0" : : "r" (value));
-}
-
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
@@ -162,9 +154,9 @@ void _start(struct stivale2_struct* hdr) {
   cr0 |= 0x10000;
   write_cr0(cr0);
 
-  uint64_t get_addr_result[10];
-  uint64_t start[10];
-  uint64_t end[10];
+  uint64_t get_addr_result[MAX_MEM_SECTIONS];
+  uint64_t start[MAX_MEM_SECTIONS];
+  uint64_t end[MAX_MEM_SECTIONS];
   uint16_t num_read;
 
   // Fill array to pass to freelist_init
@@ -174,6 +166,9 @@ void _start(struct stivale2_struct* hdr) {
   end[0] = get_addr_result[1];
   end[1] = get_addr_result[3];
   freelist_init(start, end, 1);
+  print_freelist(5);
+
+  // pmem_alloc() tests
   kprintf("\n");
   /*uintptr_t test_ptr1 = pmem_alloc();
   uintptr_t test_ptr2 = pmem_alloc();
@@ -194,11 +189,17 @@ void _start(struct stivale2_struct* hdr) {
   uintptr_t test_ptr8 = pmem_alloc();
   kprintf("Test 8: %p\n", test_ptr8);*/
 
+  /*for (int i = 0; i < 4; i++) {
+    kprintf("iteration %d\n", i);
+    uintptr_t new_ptr = pmem_alloc();
+    kprintf("pointer obtained: %p\n", new_ptr);
+  }*/
+
   /*char* test_string = "aaaaaaaaaa";
   int num_read = 0;*/
 
   uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  int* p = (int*)0x50004000;
+  int* p = (int*)0x5000400000;
   bool result = vm_map(root, (uintptr_t)p, false, true, false);
   if (result) {
     *p = 123;
@@ -207,7 +208,9 @@ void _start(struct stivale2_struct* hdr) {
     kprintf("vm_map failed with an error\n");
   }
 
-  result = vm_map(root, (uintptr_t)p, false, true, false);
+  //translate(p);
+
+  /*result = vm_map(root, (uintptr_t)p, false, true, false);
   if (result) {
     kprintf("no error\n");
   } else {
@@ -222,7 +225,7 @@ void _start(struct stivale2_struct* hdr) {
   }
 
   *p = 1234;
-  kprintf("%d", *p);
+  kprintf("%d", *p);*/
 
   while (1) {
     kprintf("%c", kgetc());
@@ -238,18 +241,3 @@ void _start(struct stivale2_struct* hdr) {
 	// We're done, just hang...
 	halt();
 }
-
-/*
-512 entries in table, 8 bytes long (64 bits)
-11:0 offset
-20:12 level 1
-29:21 level 2
-30:38 level 3
-39:47 level 4
-63:48 ignored, share most significatnt bit of level 4
-FIGURE 4.8
-
-FIGURE 4-17
-bits 0,1,2, 3,4, and 6 should be zero. 6 might only exist (dirty bit) on lower levels, 7 should be zero, 
-BIT 12 pointer
-*/
