@@ -96,7 +96,7 @@ void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
   //top = current;
   uint64_t end_addr = *end;
   for (int i = 0; i < num_sections; i++) {
-    while ((start_addr + PAGE_SIZE) < end_addr) {
+    while ((start_addr + PAGE_SIZE) <= end_addr) {
       //current->next = (freelist_node_t*) (start_addr + PAGE_SIZE);
       //current = current->next;
       pmem_free(start_addr);
@@ -118,15 +118,15 @@ void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
  */
 uintptr_t pmem_alloc() {
   if (top == NULL) return 0;
-  kprintf("old top: %p\n", top);
+  //kprintf("old top: %p\n", top);
   freelist_node_t* vtop = phys_to_vir((void*) top);
-  kprintf("old top->next: %p\n", vtop->next);
+  //kprintf("old top->next: %p\n", vtop->next);
   freelist_node_t* temp = top;
   top = vtop->next;
-  kprintf("temp: %p\n", temp);
-  kprintf("new top: %p\n", top);
-  if (top != NULL) kprintf("new top->next: %p\n", vtop->next);
-  else kprintf("top was NULL\n");
+  //kprintf("temp: %p\n", temp);
+  //kprintf("new top: %p\n", top);
+  //if (top != NULL) kprintf("new top->next: %p\n", vtop->next);
+  //else kprintf("top was NULL\n");
   return (uintptr_t) temp;
 }
 
@@ -144,7 +144,8 @@ void pmem_free(uintptr_t p) {
     return;
   }
   freelist_node_t* new_node = (freelist_node_t*) p;
-  new_node->next = top; // change new node to virt
+  freelist_node_t* vnew_node = phys_to_vir((void*) new_node);
+  vnew_node->next = top;
   top = new_node;
 }
 
@@ -185,6 +186,8 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
     kprintf("vm_map level %d\n", i);
     uint16_t index = indices[i];
     if (table[index].present == 1) {
+      kprintf("table[index]: %p\n", table[index]);
+      kprintf("index: %p\n", index);
       table_phys = table[index].address << 12;
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
     } else {
@@ -197,17 +200,22 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       // Zero out the new page
       memset((void*) phys_to_vir((void*)new_ptr), 0, PAGE_SIZE);
       // Set values
+      kprintf("table[index]: %p\n", table[index]);
+      kprintf("index: %p\n", index);
       table[index].present = 1;
       table[index].user = (i == 1 ? user : 1);
       table[index].writable = (i == 1 ? writable : 1);
       table[index].no_execute = (i == 1 ? executable : 0);
       table[index].address = new_ptr >> 12;
+      kprintf("table[index] after setting values: %p\n", table[index]);
       kprintf("table[index].address: %p\n", table[index].address);
 
+      if (i == 1) return true;
       // Proceed to this new table
       table_phys = table[index].address << 12;
+      kprintf("table_phys: %p\n", table_phys);
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
-      if (i == 1) return true;
+      //if (i == 1) return true;
     }
   }
   // The last entry was present, so return false

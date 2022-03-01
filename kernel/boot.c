@@ -10,8 +10,12 @@
 #include "pic.h"
 #include "key.h"
 #include "page.h"
+#include "syscall_def.h"
 
 #define MAX_MEM_SECTIONS 10
+
+#define SYS_read 0
+#define SYS_write 1
 
 uint64_t hhdm_base_global;
 
@@ -132,6 +136,26 @@ void* phys_to_vir(void* ptr) {
   return (void*) (hhdm_base_global + (uint64_t) ptr);
 }
 
+int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
+  int64_t rc;
+  // pick a system call
+  switch(nr) {
+    case 0: // read
+      rc = sys_read(arg0, (void*) arg1, arg2);
+      break;
+    case 1: // write
+      rc = sys_write(arg0, (void*) arg1, arg2);
+      break;
+    default:
+      rc = -1;
+      break;
+  }
+  return rc;
+}
+
+extern int64_t syscall(uint64_t nr, ...);
+extern void syscall_entry();
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
@@ -142,6 +166,8 @@ void _start(struct stivale2_struct* hdr) {
   // Initialize interrupt descriptor table
   idt_setup();
   pic_unmask_irq(1);
+  // Set handler for system calls
+  idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
 
   // Print usable memory ranges
   print_mem_address(hdr);
@@ -153,6 +179,20 @@ void _start(struct stivale2_struct* hdr) {
   uint64_t cr0 = read_cr0();
   cr0 |= 0x10000;
   write_cr0(cr0);
+
+  char buf[6];
+  long rc = syscall(SYS_read, 0, buf, 5);
+  if (rc <= 0) {
+    kprintf("read failed\n");
+  } else {
+    buf[rc] = '\0';
+    kprintf("read '%s'\n", buf);
+  }
+
+  kprintf("write test:\n");
+  long rc2 = syscall(SYS_write, 1, "buf", 3);
+  kprintf("\n");
+  kprintf("rc2: %d\n", rc2);
 
   uint64_t get_addr_result[MAX_MEM_SECTIONS];
   uint64_t start[MAX_MEM_SECTIONS];
@@ -167,9 +207,9 @@ void _start(struct stivale2_struct* hdr) {
   end[1] = get_addr_result[3];
   freelist_init(start, end, 1);
   print_freelist(5);
+  kprintf("\n");
 
   // pmem_alloc() tests
-  kprintf("\n");
   /*uintptr_t test_ptr1 = pmem_alloc();
   uintptr_t test_ptr2 = pmem_alloc();
   uintptr_t test_ptr3 = pmem_alloc();
@@ -198,15 +238,15 @@ void _start(struct stivale2_struct* hdr) {
   /*char* test_string = "aaaaaaaaaa";
   int num_read = 0;*/
 
-  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  int* p = (int*)0x5000400000;
-  bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  if (result) {
+  //uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  //int* p = (int*)0x5000400000;
+  //bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  /*if (result) {
     *p = 123;
     kprintf("Stored %d at %p\n", *p, p);
   } else {
     kprintf("vm_map failed with an error\n");
-  }
+  }*/
 
   //translate(p);
 

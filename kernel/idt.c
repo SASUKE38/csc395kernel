@@ -6,6 +6,7 @@
 #include "pic.h"
 #include "port.h"
 #include "key.h"
+#include "idt.h"
 
 typedef struct interrupt_context {
   uintptr_t ip;
