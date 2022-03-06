@@ -59,15 +59,16 @@ void translate(void* address) {
   };
 
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);//(table_phys + hhdm_base_global);
-  kprintf("translating %p\n",  address);
-  kprintf("   page offset = %p\n",  indices[0]);
+  kprintf("Translating %p\n",  address);
+  /*kprintf("   page offset = %p\n",  indices[0]);
   kprintf("   index 1 = %p\n",  indices[1]);
   kprintf("   index 2 = %p\n",  indices[2]);
   kprintf("   index 3 = %p\n",  indices[3]);
-  kprintf("   index 4 = %p\n",  indices[4]);
+  kprintf("   index 4 = %p\n",  indices[4]);*/
 
   for (int i = 4; i > 0; i--) {
     uint16_t index = indices[i];
+    kprintf("table[index] at %p: %p\n", &table[index], table[index]);
     if (table[index].present == 1) {
       kprintf("%s", table[index].user ? "user" : "kernel");
       if (table[index].writable == 1) {
@@ -92,23 +93,17 @@ void translate(void* address) {
 
 void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
   uint64_t start_addr = *start;
-  //freelist_node_t* current = (freelist_node_t*) start_addr;
-  //top = current;
   uint64_t end_addr = *end;
+  // Loop until all memory sections are processed.
   for (int i = 0; i < num_sections; i++) {
+    // Loop until all chunks of the current section are processed.
     while ((start_addr + PAGE_SIZE) <= end_addr) {
-      //current->next = (freelist_node_t*) (start_addr + PAGE_SIZE);
-      //current = current->next;
       pmem_free(start_addr);
       start_addr += PAGE_SIZE;
     }
-    /*if (i == num_sections - 1) {
-      current->next = NULL;
-    }*/
+    // Increment the position in the start and end arrays.
     start_addr = (uint64_t) start[i+1];
     end_addr = (uint64_t) end[i+1];
-    //current->next = (freelist_node_t*) start_addr;
-    //current = current->next;
   }
 }
 
@@ -181,39 +176,43 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   };
 
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
+  uintptr_t new_ptr;
 
   for (int i = 4; i > 0; i--) {
     kprintf("vm_map level %d\n", i);
     uint16_t index = indices[i];
+    // If the entry is present, move to the next level
     if (table[index].present == 1) {
-      kprintf("table[index]: %p\n", table[index]);
-      kprintf("index: %p\n", index);
+      kprintf("table[index]: %p, index: %p\n", table[index], index);
       table_phys = table[index].address << 12;
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
+      // Fill in the entry otherwise
     } else {
       kprintf("%d was not present\n", i);
       // Get a pointer to a new page
-      uintptr_t new_ptr = pmem_alloc();
+      new_ptr = pmem_alloc();
       kprintf("new_ptr: %p\n", new_ptr);
       // Return false if the call to pmem_alloc failed
       if (new_ptr == 0) return false;
       // Zero out the new page
       memset((void*) phys_to_vir((void*)new_ptr), 0, PAGE_SIZE);
       // Set values
-      kprintf("table[index]: %p\n", table[index]);
-      kprintf("index: %p\n", index);
+      kprintf("table[index]: %p, index: %p\n", table[index], index);
+      //kprintf("index: %p\n", index);
       table[index].present = 1;
       table[index].user = (i == 1 ? user : 1);
       table[index].writable = (i == 1 ? writable : 1);
       table[index].no_execute = (i == 1 ? executable : 0);
       table[index].address = new_ptr >> 12;
-      kprintf("table[index] after setting values: %p\n", table[index]);
-      kprintf("table[index].address: %p\n", table[index].address);
+      kprintf("table[index] after setting values at %p: %p\n", &table[index], table[index]);
+      //kprintf("table[index].address: %p\n", table[index].address);
 
+      // Return true if the last entry was filled in
       if (i == 1) return true;
       // Proceed to this new table
       table_phys = table[index].address << 12;
       kprintf("table_phys: %p\n", table_phys);
+      kprintf("table_phys vir: %p\n", phys_to_vir((void*)table_phys));
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
       //if (i == 1) return true;
     }

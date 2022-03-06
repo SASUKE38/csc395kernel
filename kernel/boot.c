@@ -11,6 +11,12 @@
 #include "key.h"
 #include "page.h"
 #include "syscall_def.h"
+#include "strlib.h"
+#include "elf.h"
+
+#define MEMMAP_TAG_ID 0x2187f79e8612de07
+#define HHDM_TAG_ID 0xb0ed257db18cb58f
+#define MODULES_TAG_ID 0x4b6fe466aade04ce
 
 #define MAX_MEM_SECTIONS 10
 
@@ -90,8 +96,8 @@ void term_setup(struct stivale2_struct* hdr) {
 // Print usable memory using memmap and hhdm tags
 void print_mem_address(struct stivale2_struct* hdr) {
   // Find the hhdm and memmap tags in the list
-  struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, 0xb0ed257db18cb58f);
-  struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, 0x2187f79e8612de07);
+  struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
+  struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, MEMMAP_TAG_ID);
   uint64_t memmap_base;
   uint64_t memmap_end;
   uint64_t hhdm_addr = hhdm_tag->addr;
@@ -113,7 +119,7 @@ void print_mem_address(struct stivale2_struct* hdr) {
 
 uint16_t get_mem_address(struct stivale2_struct* hdr, uint64_t* result) {
   // Find the hhdm and memmap tags in the list
-  struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, 0x2187f79e8612de07);
+  struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, MEMMAP_TAG_ID);
   uint64_t memmap_base;
   uint64_t memmap_end;
   uint16_t index = 0;
@@ -156,11 +162,29 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
 extern int64_t syscall(uint64_t nr, ...);
 extern void syscall_entry();
 
+void load_module(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
+  // Get the number of modules
+  uint16_t count = modules_tag->module_count;
+  struct stivale2_module* current; 
+  kprintf("Modules:\n");
+  // Loop over the modules and print their information
+  for (int i = 0; i < count; i++) {
+    current = &modules_tag->modules[i];
+    if (strcmp(current->string, mod_name) == 0) {
+      kprintf("%s: %p - %p\n", current->string, current->begin, current->end);
+    }
+  }
+}
+
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   term_setup(hdr);
-  struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, 0xb0ed257db18cb58f);
+  // Find the hhdm tag
+  struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
   hhdm_base_global = hhdm_tag->addr;
+  // Find the module tag
+  struct stivale2_struct_tag_modules* modules_tag = find_tag(hdr, MODULES_TAG_ID);
+
   // Initialize PIC
   pic_init();
   // Initialize interrupt descriptor table
@@ -172,6 +196,9 @@ void _start(struct stivale2_struct* hdr) {
   // Print usable memory ranges
   print_mem_address(hdr);
 
+  // Process modules
+  load_module("init", modules_tag);
+
   //uintptr_t cr3_ptr = read_cr3();
   //translate(_start);
 
@@ -180,7 +207,8 @@ void _start(struct stivale2_struct* hdr) {
   cr0 |= 0x10000;
   write_cr0(cr0);
 
-  char buf[6];
+  // READ and WRITE tests
+  /*char buf[6];
   long rc = syscall(SYS_read, 0, buf, 5);
   if (rc <= 0) {
     kprintf("read failed\n");
@@ -192,12 +220,14 @@ void _start(struct stivale2_struct* hdr) {
   kprintf("write test:\n");
   long rc2 = syscall(SYS_write, 1, "buf", 3);
   kprintf("\n");
-  kprintf("rc2: %d\n", rc2);
+  kprintf("rc2: %d\n", rc2);*/
 
   uint64_t get_addr_result[MAX_MEM_SECTIONS];
   uint64_t start[MAX_MEM_SECTIONS];
   uint64_t end[MAX_MEM_SECTIONS];
   uint16_t num_read;
+
+  // VM_MAP, PMEM_ALLOC, and PMEM_FREE tests
 
   // Fill array to pass to freelist_init
   num_read = get_mem_address(hdr, get_addr_result);
@@ -205,8 +235,8 @@ void _start(struct stivale2_struct* hdr) {
   start[1] = get_addr_result[2];
   end[0] = get_addr_result[1];
   end[1] = get_addr_result[3];
-  freelist_init(start, end, 1);
-  print_freelist(5);
+  freelist_init(start, end, 2);
+  //print_freelist(5);
   kprintf("\n");
 
   // pmem_alloc() tests
@@ -238,10 +268,11 @@ void _start(struct stivale2_struct* hdr) {
   /*char* test_string = "aaaaaaaaaa";
   int num_read = 0;*/
 
-  //uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  //int* p = (int*)0x5000400000;
-  //bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  /*if (result) {
+  /*uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  int* p = (int*)0x5000400000;
+  bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  if (result) {
+    kprintf("begin test\n");
     *p = 123;
     kprintf("Stored %d at %p\n", *p, p);
   } else {
@@ -281,3 +312,4 @@ void _start(struct stivale2_struct* hdr) {
 	// We're done, just hang...
 	halt();
 }
+// tar -xvzf (extract, verbose, zip, file) FILENAME

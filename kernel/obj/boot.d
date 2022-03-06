@@ -1,5 +1,5 @@
 obj/boot.o: boot.c stivale2.h util.h kprint.h idt.h pic.h key.h page.h \
-  syscall_def.h
+  syscall_def.h strlib.h elf.h
 
 stivale2.h:
 
@@ -16,3 +16,7 @@ key.h:
 page.h:
 
 syscall_def.h:
+
+strlib.h:
+
+elf.h:

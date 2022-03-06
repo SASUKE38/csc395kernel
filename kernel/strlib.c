@@ -16,3 +16,20 @@ int stringlen(const char* str) {
   }
   return result;
 }
+
+int strcmp(const char *s1, const char *s2) {
+  char current;
+  int index = 0;
+  while (1) {
+    if (s1[index] < s2[index]) {
+      return -1;
+    }
+    if (s1[index] > s2[index]) {
+      return 1;
+    }
+    if (s1[index] == '\0') {
+      return 0;
+    }
+    index++;
+  }
+}

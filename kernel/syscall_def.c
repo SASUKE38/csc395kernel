@@ -3,6 +3,8 @@
 #include "kprint.h"
 #include "key.h"
 
+#define BACKSPACE 8
+
 int64_t sys_read(int16_t fd, void *buf, uint16_t count) {
   int64_t num_read = 0;
   char* result_buf = (char*) buf;
@@ -16,7 +18,7 @@ int64_t sys_read(int16_t fd, void *buf, uint16_t count) {
     // get a character
     current = kgetc();
     // handle backspace
-    if (current == 8) {
+    if (current == BACKSPACE) {
       // do nothing if the buffer is empty
       if (num_read == 0) {
         continue;
