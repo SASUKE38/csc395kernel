@@ -1,5 +1,7 @@
 #pragma once
 
+#define PAGE_SIZE 0x1000
+
 void print_freelist(int num_print);
 
 uint64_t read_cr0();

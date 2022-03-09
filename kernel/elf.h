@@ -43,7 +43,7 @@ typedef struct elf_hdr {
   uint16_t e_shstrndx;
 } __attribute__((packed)) elf_hdr_t;
 
-// This struct matches the layout of an ELF program header.
+// This struct matches the layout of an ELF program header entry.
 typedef struct elf_phdr {
   uint32_t p_type;
   uint32_t p_flags;

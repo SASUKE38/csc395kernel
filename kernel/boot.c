@@ -162,19 +162,77 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
 extern int64_t syscall(uint64_t nr, ...);
 extern void syscall_entry();
 
-void load_module(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
+// Probably add check that the requested module is an elf
+void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
   // Get the number of modules
   uint16_t count = modules_tag->module_count;
-  struct stivale2_module* current; 
-  kprintf("Modules:\n");
-  // Loop over the modules and print their information
-  for (int i = 0; i < count; i++) {
-    current = &modules_tag->modules[i];
+  struct stivale2_module* current;
+  elf_hdr_t* elf_hdr = NULL;
+  elf_phdr_t* elf_phdr = NULL;
+  uint16_t phnum;
+  int index = 0;
+  // Loop over the modules until the requested one is found
+  while (index < count) {
+    current = &modules_tag->modules[index++];
     if (strcmp(current->string, mod_name) == 0) {
-      kprintf("%s: %p - %p\n", current->string, current->begin, current->end);
+      // Cast the module start address to the elf header
+      elf_hdr = (elf_hdr_t*) current->begin;
+      // Calculate and store the address of the start of the program header table 
+      elf_phdr = (elf_phdr_t*) (current->begin + elf_hdr->e_phoff);
+      phnum = elf_hdr->e_phnum;
+      break;
+    } else if (index >= count) {
+    kprintf("run_exec_elf: requested file not found in modules\n");
+    return;
     }
   }
-}
+  // Make sure the file is executable
+  if (elf_hdr->e_type != ET_EXEC) {
+    kprintf("run_exec_elf: attempted to execute non-executable ELF file\n");
+    return;
+  }
+  /*kprintf("%s: %p - %p\n", current->string, current->begin, current->end);
+  kprintf("header: %s\n", elf_hdr->e_ident);
+  kprintf("type: %d\n", elf_hdr->e_type);
+  kprintf("entry point: %p\n", elf_hdr->e_entry);
+  kprintf("program header offset: %p\n", elf_hdr->e_phoff);
+  kprintf("program header entry count: %d\n", phnum);
+  kprintf("program header entry size: %d\n", elf_hdr->e_phentsize);
+  kprintf("calculated program header start address: %p\n", elf_phdr);
+  kprintf("program header entry: %d, type: %d, vaddr: %p, flags: %p, memsz: %d, filesz: %d, offset: %p\n", i, elf_phdr->p_type, 
+    elf_phdr->p_vaddr, elf_phdr->p_flags, elf_phdr->p_memsz, elf_phdr->p_filesz, elf_phdr->p_offset);*/
+  // Loop over the program table entries and allocate memory for loadable segments
+  for (int i = 0; i < phnum; i++) {
+    if (elf_phdr->p_type == PT_LOAD) {
+      // Skip NULL sections
+      if (elf_phdr->p_vaddr == 0x0) continue;
+      
+      //kprintf("before size_left\n");
+      // Allocate the segment's requested memory; if it is larger than a page, call vm_map enough times to accomodate the requested chunk
+      uint64_t size_left = elf_phdr->p_memsz;
+      //kprintf("after size_left, size_left: %d, PAGE_SIZE: %p\n", size_left, PAGE_SIZE);
+      int i = 0;
+      do {
+        kprintf("before vm_map, vaddr: %p\n", elf_phdr->p_vaddr);
+        if (vm_map(read_cr3(), elf_phdr->p_vaddr + (i * PAGE_SIZE), 1, 1, 1) == false) {
+          kprintf("run_exec_elf: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
+        }
+        translate(elf_phdr->p_vaddr);
+        //kprintf("after vm_map\n");
+        if (size_left >= PAGE_SIZE) size_left -= PAGE_SIZE;
+        i++;
+      } while (size_left >= PAGE_SIZE);
+      // Copy the segment's data into the requested page
+      memcpy((void*)elf_phdr->p_vaddr, (const void*) ((uintptr_t) elf_hdr + (uintptr_t) elf_phdr->p_offset), elf_phdr->p_filesz);
+    }
+    elf_phdr++;
+  }
+  kprintf("about to move to entry point\n");
+  // Cast the entry point as a function pointer and jump to it
+  void (*entry_point) (void) = (void (*) (void)) elf_hdr->e_entry;
+  (*entry_point)();
+} // copy (size) bytes from file at offset (offset) to virtual address (vaddr) with permissions (flags)
+// ((elf_phdr->p_flags & 0x2) >> 1), (elf_phdr->p_flags & 0x1))
 
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
@@ -196,31 +254,10 @@ void _start(struct stivale2_struct* hdr) {
   // Print usable memory ranges
   print_mem_address(hdr);
 
-  // Process modules
-  load_module("init", modules_tag);
-
-  //uintptr_t cr3_ptr = read_cr3();
-  //translate(_start);
-
   // Enable write protection
   uint64_t cr0 = read_cr0();
   cr0 |= 0x10000;
   write_cr0(cr0);
-
-  // READ and WRITE tests
-  /*char buf[6];
-  long rc = syscall(SYS_read, 0, buf, 5);
-  if (rc <= 0) {
-    kprintf("read failed\n");
-  } else {
-    buf[rc] = '\0';
-    kprintf("read '%s'\n", buf);
-  }
-
-  kprintf("write test:\n");
-  long rc2 = syscall(SYS_write, 1, "buf", 3);
-  kprintf("\n");
-  kprintf("rc2: %d\n", rc2);*/
 
   uint64_t get_addr_result[MAX_MEM_SECTIONS];
   uint64_t start[MAX_MEM_SECTIONS];
@@ -236,80 +273,33 @@ void _start(struct stivale2_struct* hdr) {
   end[0] = get_addr_result[1];
   end[1] = get_addr_result[3];
   freelist_init(start, end, 2);
-  //print_freelist(5);
-  kprintf("\n");
+  kprintf("Freelist initialized.\n");
 
-  // pmem_alloc() tests
-  /*uintptr_t test_ptr1 = pmem_alloc();
-  uintptr_t test_ptr2 = pmem_alloc();
-  uintptr_t test_ptr3 = pmem_alloc();
-  uintptr_t test_ptr4 = pmem_alloc();
-  uintptr_t test_ptr5 = pmem_alloc();
-  kprintf("Test 1: %p\n", test_ptr1);
-  kprintf("Test 2: %p\n", test_ptr2);
-  kprintf("Test 3: %p\n", test_ptr3);
-  kprintf("Test 4: %p\n", test_ptr4);
-  kprintf("Test 5: %p\n", test_ptr5);
-  pmem_free(test_ptr1);
-  uintptr_t test_ptr6 = pmem_alloc();
-  kprintf("Test 6: %p\n", test_ptr6);
-  pmem_free(test_ptr2);
-  uintptr_t test_ptr7 = pmem_alloc();
-  kprintf("Test 7: %p\n", test_ptr7);
-  uintptr_t test_ptr8 = pmem_alloc();
-  kprintf("Test 8: %p\n", test_ptr8);*/
-
-  /*for (int i = 0; i < 4; i++) {
-    kprintf("iteration %d\n", i);
-    uintptr_t new_ptr = pmem_alloc();
-    kprintf("pointer obtained: %p\n", new_ptr);
-  }*/
-
-  /*char* test_string = "aaaaaaaaaa";
-  int num_read = 0;*/
+  // Process modules
+  run_exec_elf("init", modules_tag);
 
   /*uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
   int* p = (int*)0x5000400000;
   bool result = vm_map(root, (uintptr_t)p, false, true, false);
   if (result) {
-    kprintf("begin test\n");
     *p = 123;
     kprintf("Stored %d at %p\n", *p, p);
   } else {
     kprintf("vm_map failed with an error\n");
-  }*/
-
-  //translate(p);
-
-  /*result = vm_map(root, (uintptr_t)p, false, true, false);
-  if (result) {
-    kprintf("no error\n");
-  } else {
-    kprintf("didn't overwrite %d\n", *p);
   }
 
-  result = vm_unmap(root, (uintptr_t)p);
-  if (result == true) {
-    kprintf("unmapped %p\n", p);
-  } else {
-    kprintf("unmap fauled\n");
-  }
+  char* test1 = "memcpy test\n";
+  char test2[13];
 
-  *p = 1234;
-  kprintf("%d", *p);*/
+  memcpy(test2, test1, 12);
+  test2[12] = '\0';
+
+  kprintf("%s, length: %d\n", test2, stringlen(test2));*/
 
   while (1) {
     kprintf("%c", kgetc());
   }
 
-  /*while (1) {
-    kprintf("Line: \n");
-    num_read = kgets(test_string, 10);
-    kprintf("%s, %d",test_string, num_read);
-    kprintf("\n");
-  }*/
-
 	// We're done, just hang...
 	halt();
 }
-// tar -xvzf (extract, verbose, zip, file) FILENAME

@@ -6,8 +6,6 @@
 #include "strlib.h"
 #include "page.h"
 
-#define PAGE_SIZE 0x1000
-
 typedef struct freelist_node {
   struct freelist_node* next;
 } freelist_node_t;
@@ -113,15 +111,9 @@ void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
  */
 uintptr_t pmem_alloc() {
   if (top == NULL) return 0;
-  //kprintf("old top: %p\n", top);
   freelist_node_t* vtop = phys_to_vir((void*) top);
-  //kprintf("old top->next: %p\n", vtop->next);
   freelist_node_t* temp = top;
   top = vtop->next;
-  //kprintf("temp: %p\n", temp);
-  //kprintf("new top: %p\n", top);
-  //if (top != NULL) kprintf("new top->next: %p\n", vtop->next);
-  //else kprintf("top was NULL\n");
   return (uintptr_t) temp;
 }
 
@@ -179,42 +171,31 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
   uintptr_t new_ptr;
 
   for (int i = 4; i > 0; i--) {
-    kprintf("vm_map level %d\n", i);
     uint16_t index = indices[i];
     // If the entry is present, move to the next level
     if (table[index].present == 1) {
-      kprintf("table[index]: %p, index: %p\n", table[index], index);
       table_phys = table[index].address << 12;
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
-      // Fill in the entry otherwise
+    // Fill in the entry otherwise
     } else {
-      kprintf("%d was not present\n", i);
       // Get a pointer to a new page
       new_ptr = pmem_alloc();
-      kprintf("new_ptr: %p\n", new_ptr);
       // Return false if the call to pmem_alloc failed
       if (new_ptr == 0) return false;
       // Zero out the new page
       memset((void*) phys_to_vir((void*)new_ptr), 0, PAGE_SIZE);
       // Set values
-      kprintf("table[index]: %p, index: %p\n", table[index], index);
-      //kprintf("index: %p\n", index);
       table[index].present = 1;
       table[index].user = (i == 1 ? user : 1);
       table[index].writable = (i == 1 ? writable : 1);
       table[index].no_execute = (i == 1 ? executable : 0);
       table[index].address = new_ptr >> 12;
-      kprintf("table[index] after setting values at %p: %p\n", &table[index], table[index]);
-      //kprintf("table[index].address: %p\n", table[index].address);
 
       // Return true if the last entry was filled in
       if (i == 1) return true;
       // Proceed to this new table
       table_phys = table[index].address << 12;
-      kprintf("table_phys: %p\n", table_phys);
-      kprintf("table_phys vir: %p\n", phys_to_vir((void*)table_phys));
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
-      //if (i == 1) return true;
     }
   }
   // The last entry was present, so return false
@@ -230,7 +211,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
 bool vm_unmap(uintptr_t root, uintptr_t address) {
   uintptr_t table_phys = root & 0xFFFFFFFFFFFFF000;
 
-  uintptr_t addr = address;
+  uintptr_t addr = (uintptr_t) address;
   uint16_t indices[] = {
     addr & 0xFFF,
     (addr >> 12) & 0x1FF,
@@ -240,20 +221,20 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
   };
 
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
-
+  uint16_t index = 0;
+  uintptr_t to_free;
   for (int i = 4; i > 0; i--) {
-    uint16_t index = indices[i];
-    if (table[index].present == 1) {
-      table_phys = table[index].address << 12;
-      table = (pt_entry_t*) phys_to_vir((void*)table_phys);
-      if (i == 1) {
-        table[index].present = 0;
-        pmem_free(addr);
-      }
-    } else {
-      return false;
-    }
+    index = indices[i];
+    kprintf("level: %d\n", i);
+    kprintf("table[index].address in loop: %p\n", table[index].address);
+    if (table[index].present == 0) return false;
+    if (i == 1) to_free = table[index].address;
+    table_phys = table[index].address << 12;
+    table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }
+  table[index].present = 0;
+  kprintf("table[index].address after traversal: %p\n", to_free);
+  pmem_free((uintptr_t)(to_free << 12));
   return true;
 }
 
@@ -279,21 +260,20 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
   };
 
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
+  uint16_t index;
 
   for (int i = 4; i > 0; i--) {
-    uint16_t index = indices[i];
-    if (table[index].present == 1) {
+    index = indices[i];
+    if (table[index].present == 0) return false;
 
-      table_phys = table[index].address << 12;
-      table = (pt_entry_t*)phys_to_vir((void*)table_phys);
-      if (i == 1) {
-        table[index].user = user;
-        table[index].writable = writable;
-        table[index].no_execute = executable;
-      }
-    } else {
-      return false;
+    if (i == 1) {
+      table[index].user = user;
+      table[index].writable = writable;
+      table[index].no_execute = executable;
     }
+
+    table_phys = table[index].address << 12;
+    table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }
   return true;
 }
