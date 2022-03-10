@@ -191,48 +191,37 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
     kprintf("run_exec_elf: attempted to execute non-executable ELF file\n");
     return;
   }
-  /*kprintf("%s: %p - %p\n", current->string, current->begin, current->end);
-  kprintf("header: %s\n", elf_hdr->e_ident);
-  kprintf("type: %d\n", elf_hdr->e_type);
-  kprintf("entry point: %p\n", elf_hdr->e_entry);
-  kprintf("program header offset: %p\n", elf_hdr->e_phoff);
-  kprintf("program header entry count: %d\n", phnum);
-  kprintf("program header entry size: %d\n", elf_hdr->e_phentsize);
-  kprintf("calculated program header start address: %p\n", elf_phdr);
-  kprintf("program header entry: %d, type: %d, vaddr: %p, flags: %p, memsz: %d, filesz: %d, offset: %p\n", i, elf_phdr->p_type, 
-    elf_phdr->p_vaddr, elf_phdr->p_flags, elf_phdr->p_memsz, elf_phdr->p_filesz, elf_phdr->p_offset);*/
+  
   // Loop over the program table entries and allocate memory for loadable segments
   for (int i = 0; i < phnum; i++) {
     if (elf_phdr->p_type == PT_LOAD) {
       // Skip NULL sections
       if (elf_phdr->p_vaddr == 0x0) continue;
       
-      //kprintf("before size_left\n");
       // Allocate the segment's requested memory; if it is larger than a page, call vm_map enough times to accomodate the requested chunk
       uint64_t size_left = elf_phdr->p_memsz;
-      //kprintf("after size_left, size_left: %d, PAGE_SIZE: %p\n", size_left, PAGE_SIZE);
       int i = 0;
       do {
-        kprintf("before vm_map, vaddr: %p\n", elf_phdr->p_vaddr);
-        if (vm_map(read_cr3(), elf_phdr->p_vaddr + (i * PAGE_SIZE), 1, 1, 1) == false) {
+        // Allocate a requested page, setting permissions to writable only for byte copying
+        if (vm_map(read_cr3(), elf_phdr->p_vaddr + (i * PAGE_SIZE), 0, 1, 1) == false) {
           kprintf("run_exec_elf: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
         }
-        translate(elf_phdr->p_vaddr);
-        //kprintf("after vm_map\n");
         if (size_left >= PAGE_SIZE) size_left -= PAGE_SIZE;
         i++;
       } while (size_left >= PAGE_SIZE);
+
       // Copy the segment's data into the requested page
       memcpy((void*)elf_phdr->p_vaddr, (const void*) ((uintptr_t) elf_hdr + (uintptr_t) elf_phdr->p_offset), elf_phdr->p_filesz);
+      
+      // Change the permissions to those requested by the file.
+      vm_protect(read_cr3(), elf_phdr->p_vaddr, ((elf_phdr->p_flags & 0x4) >> 2), ((elf_phdr->p_flags & 0x2) >> 1), ~(elf_phdr->p_flags & 0x1) & 0x1);
     }
     elf_phdr++;
   }
-  kprintf("about to move to entry point\n");
-  // Cast the entry point as a function pointer and jump to it
+  // Cast the entry point to a function pointer and jump to it
   void (*entry_point) (void) = (void (*) (void)) elf_hdr->e_entry;
   (*entry_point)();
-} // copy (size) bytes from file at offset (offset) to virtual address (vaddr) with permissions (flags)
-// ((elf_phdr->p_flags & 0x2) >> 1), (elf_phdr->p_flags & 0x1))
+}
 
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
@@ -259,43 +248,29 @@ void _start(struct stivale2_struct* hdr) {
   cr0 |= 0x10000;
   write_cr0(cr0);
 
+  // Freelist initialization
   uint64_t get_addr_result[MAX_MEM_SECTIONS];
   uint64_t start[MAX_MEM_SECTIONS];
   uint64_t end[MAX_MEM_SECTIONS];
   uint16_t num_read;
 
-  // VM_MAP, PMEM_ALLOC, and PMEM_FREE tests
-
   // Fill array to pass to freelist_init
   num_read = get_mem_address(hdr, get_addr_result);
-  start[0] = get_addr_result[0];
-  start[1] = get_addr_result[2];
-  end[0] = get_addr_result[1];
-  end[1] = get_addr_result[3];
-  freelist_init(start, end, 2);
-  kprintf("Freelist initialized.\n");
+  // Separate start and end addresses
+  int start_index = 0;
+  int end_index = 0;
+  for (int i = 0; i < num_read; i++) {
+    if (i % 2 == 0) start[start_index++] = get_addr_result[i];
+    else end[end_index++] = get_addr_result[i];
+  }
+  kprintf("Initializing freelist...\n");
+  freelist_init(start, end, (num_read / 2));
+  kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
 
   // Process modules
   run_exec_elf("init", modules_tag);
 
-  /*uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  int* p = (int*)0x5000400000;
-  bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  if (result) {
-    *p = 123;
-    kprintf("Stored %d at %p\n", *p, p);
-  } else {
-    kprintf("vm_map failed with an error\n");
-  }
-
-  char* test1 = "memcpy test\n";
-  char test2[13];
-
-  memcpy(test2, test1, 12);
-  test2[12] = '\0';
-
-  kprintf("%s, length: %d\n", test2, stringlen(test2));*/
-
+  // Loop forever, reading characters
   while (1) {
     kprintf("%c", kgetc());
   }
