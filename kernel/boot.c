@@ -82,17 +82,6 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 	return NULL;
 }
 
-void term_setup(struct stivale2_struct* hdr) {
-  // Look for a terminal tag
-  struct stivale2_struct_tag_terminal* tag = find_tag(hdr, STIVALE2_STRUCT_TAG_TERMINAL_ID);
-
-  // Make sure we find a terminal tag
-  if (tag == NULL) halt();
-
-  // Save the term_write function pointer
-	set_term_write((term_write_t)tag->term_write);
-}
-
 // Print usable memory using memmap and hhdm tags
 void print_mem_address(struct stivale2_struct* hdr) {
   // Find the hhdm and memmap tags in the list
@@ -225,12 +214,13 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
 
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
-  term_setup(hdr);
   // Find the hhdm tag
   struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
   hhdm_base_global = hhdm_tag->addr;
   // Find the module tag
   struct stivale2_struct_tag_modules* modules_tag = find_tag(hdr, MODULES_TAG_ID);
+
+  term_init();
 
   // Initialize PIC
   pic_init();

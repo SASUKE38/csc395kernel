@@ -2,10 +2,8 @@
 
 #include <stddef.h>
 
-// Set the type of a term_write function
-typedef void (*term_write_t)(const char*, size_t);
-// Set the terminal writing function
-void set_term_write(term_write_t fn);
+// Initializes the terminal.
+void term_init();
 
 // Print a character
 void kprint_c(char c);
