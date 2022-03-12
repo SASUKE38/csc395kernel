@@ -38,6 +38,15 @@ uintptr_t read_cr3() {
   return value;
 }
 
+/**
+ * Updates a virtual address translation in the translation lookaside buffer.
+ *
+ * \param virtual_address     The virtual address to update
+ */
+void invalidate_tlb(uintptr_t virtual_address) {
+   __asm__("invlpg (%0)" :: "r" (virtual_address) : "memory");
+}
+
 // This function was provided by Professor Curtsinger.
 /**
  * Translate a virtual address to its mapped physical address
@@ -192,7 +201,10 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       table[index].address = new_ptr >> 12;
 
       // Return true if the last entry was filled in
-      if (i == 1) return true;
+      if (i == 1) {
+        return true;
+        invalidate_tlb((uintptr_t) phys_to_vir((void*) address));
+      }
       // Proceed to this new table
       table_phys = table[index].address << 12;
       table = (pt_entry_t*) phys_to_vir((void*)table_phys);
@@ -222,19 +234,21 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
 
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
   uint16_t index = 0;
-  uintptr_t to_free;
+  pt_entry_t* to_free;
   for (int i = 4; i > 0; i--) {
     index = indices[i];
     kprintf("level: %d\n", i);
     kprintf("table[index].address in loop: %p\n", table[index].address);
     if (table[index].present == 0) return false;
-    if (i == 1) to_free = table[index].address;
+    if (i == 1) to_free = table;
     table_phys = table[index].address << 12;
     table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }
-  table[index].present = 0;
-  kprintf("table[index].address after traversal: %p\n", to_free);
-  pmem_free((uintptr_t)(to_free << 12));
+  to_free[index].present = 0;
+  kprintf("to_free after traversal: %p\n", to_free);
+  kprintf("table[index].address after traversal: %p\n", to_free[index].address);
+  pmem_free((uintptr_t)(to_free[index].address << 12));
+  invalidate_tlb((uintptr_t) phys_to_vir((void*) address));
   return true;
 }
 
@@ -262,10 +276,12 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
   uint16_t index;
 
+  // Traverse the pages tables
   for (int i = 4; i > 0; i--) {
     index = indices[i];
     if (table[index].present == 0) return false;
 
+    // Set the requested permissions when the bottom level is reached
     if (i == 1) {
       table[index].user = user;
       table[index].writable = writable;
@@ -275,5 +291,6 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
     table_phys = table[index].address << 12;
     table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }
+  invalidate_tlb((uintptr_t) phys_to_vir((void*) address));
   return true;
 }

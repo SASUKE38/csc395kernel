@@ -182,8 +182,8 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       phnum = elf_hdr->e_phnum;
       break;
     } else if (index >= count) {
-    kprintf("run_exec_elf: requested file not found in modules\n");
-    return;
+      kprintf("run_exec_elf: requested file not found in modules\n");
+      return;
     }
   }
   // Make sure the file is executable

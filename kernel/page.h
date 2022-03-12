@@ -2,12 +2,21 @@
 
 #define PAGE_SIZE 0x1000
 
+/**
+ * Print a selected number of items on the freelist.
+ *
+ * \param num_print The number of entries to print
+ */
 void print_freelist(int num_print);
 
 uint64_t read_cr0();
 
 void write_cr0(uint64_t value);
 
+/**
+ * Obtain a pointer to the top-level page structure.
+ * \returns a pointer to the top-level page structure.
+ */
 uintptr_t read_cr3();
 
 /**
