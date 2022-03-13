@@ -19,3 +19,10 @@ void* mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_t offs
 void* malloc(size_t sz);
 
 void free(void* p);
+
+/**
+ * Parses a string for an integer. Ignores initial whitespace.
+ * \param nptr The string to parse.
+ * \returns The parsed integer.
+ */
+int atoi(const char* nptr);

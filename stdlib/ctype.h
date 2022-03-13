@@ -17,3 +17,6 @@ int toupper(int c);
 
 // Returns the corresponding lowercase letter if c is a uppercase letter, c otherwise.
 int tolower(int c);
+
+// Returns 1 if c is a whitespace, 0 otherwise.
+int isspace(int c);

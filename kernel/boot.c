@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <strlib.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -12,7 +13,6 @@
 #include "key.h"
 #include "page.h"
 #include "syscall_def.h"
-#include "strlib.h"
 #include "elf.h"
 
 #define MEMMAP_TAG_ID 0x2187f79e8612de07

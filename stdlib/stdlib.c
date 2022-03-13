@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 extern int syscall(uint64_t nr, ...);
 
@@ -43,4 +44,21 @@ void* malloc(size_t sz) {
 
 void free(void* p) {
   // Do nothing
+}
+
+/**
+ * Parses a string for an integer. Ignores initial whitespace.
+ * \param nptr The string to parse.
+ * \returns The parsed integer.
+ */
+int atoi(const char *nptr) {
+  int result = 0;
+  while (isspace(*nptr) == 1) nptr++;
+  for (int i = 0; nptr[i] != '\0'; i++) {
+    if (isdigit(nptr[i]) == 1) {
+      result *= 10;
+      result += (nptr[i] - 48);
+    } else break;
+  }
+  return result;
 }

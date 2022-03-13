@@ -6,7 +6,7 @@ int isalpha(int c) {
 
 // Returns 1 if c is a digit, 0 otherwise.
 int isdigit(int c) {
-  if (c >= 30 && c <= 39) return 1;
+  if (c >= 48 && c <= 57) return 1;
   else return 0;
 }
 
@@ -36,4 +36,10 @@ int tolower(int c) {
     return c + 32;
   }
   else return c;
+}
+
+// Returns 1 if c is a whitespace, 0 otherwise.
+int isspace(int c) {
+  if ((c >= 9 && c <= 13) || c == 32) return 1;
+  else return 0;
 }

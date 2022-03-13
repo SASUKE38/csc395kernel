@@ -15,6 +15,22 @@ void* memset(void* s, int c, size_t n) {
 }
 
 /**
+ * Copy bytes from one region to another.
+ * \param dest The region to copy bytes to
+ * \param src The region to copy bytes from
+ * \param n The number of bytes to copy
+ * \returns A pointer to the region to copy bytes to (dest)
+ */
+void* memcpy(void* dest, const void* src, size_t n) {
+  uint8_t* dest_ptr = (uint8_t*) dest;
+  uint8_t* src_ptr = (uint8_t*) src;
+  for (int i = 0; i < n; i++) {
+    dest_ptr[i] = src_ptr[i];
+  }
+  return dest;
+}
+
+/**
  * Determine the length of a given string.
  * \param str The string whose characters should be counted.
  * \returns The number of characters in str
@@ -42,17 +58,13 @@ int strcmp(const char *s1, const char *s2) {
 }
 
 /**
- * Copy bytes from one region to another.
- * \param dest The region to copy bytes to
- * \param src The region to copy bytes from
- * \param n The number of bytes to copy
- * \returns A pointer to the region to copy bytes to (dest)
+ * Copy a string to a destination. This function also copies the null terminator.
+ * src should be null-terminated to avoid illegal memory accesses/buffer overruns.
+ * \param dest The destination region to copy the bytes to.
+ * \param src The string whose bytes will be copied.
+ * \returns A pointer to the destination string
  */
-void* memcpy(void* dest, const void* src, size_t n) {
-  uint8_t* dest_ptr = (uint8_t*) dest;
-  uint8_t* src_ptr = (uint8_t*) src;
-  for (int i = 0; i < n; i++) {
-    dest_ptr[i] = src_ptr[i];
-  }
+char* strcpy(char* dest, const char* src) {
+  for (int i = 0; src[i] != '\0'; i++) dest[i] = src[i];
   return dest;
 }
