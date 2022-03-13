@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 /**
  * Determine the length of a given string.
  * \param str The string whose characters should be counted.

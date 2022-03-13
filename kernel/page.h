@@ -19,6 +19,17 @@ void write_cr0(uint64_t value);
  */
 uintptr_t read_cr3();
 
+void write_cr3(uint64_t value);
+
+/**
+ * This function unmaps everything in the lower half of an address space with level 4 page table at address root.
+ *
+ * \param root     Pointer to the top-level page structure
+ */
+void unmap_lower_half(uintptr_t root);
+
+uintptr_t peek_freelist();
+
 /**
  * Translate a virtual address to its mapped physical address
  *

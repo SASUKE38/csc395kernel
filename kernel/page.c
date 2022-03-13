@@ -17,8 +17,14 @@ typedef struct page_table_entry {
   bool present : 1;
   bool writable : 1;
   bool user : 1;
-  uint16_t unused : 9;
-  uint64_t address : 51;
+  bool write_through : 1;
+  bool cache_disable : 1;
+  bool accessed : 1;
+  bool dirty : 1;
+  bool page_size : 1;
+  uint8_t _unused0 : 4;
+  uintptr_t address : 40;
+  uint16_t _unused1 : 11;
   bool no_execute : 1;
 } __attribute__((packed)) pt_entry_t;
 
@@ -38,6 +44,10 @@ uintptr_t read_cr3() {
   return value;
 }
 
+void write_cr3(uint64_t value) {
+  __asm__("mov %0, %%cr3" : : "r" (value));
+}
+
 /**
  * Updates a virtual address translation in the translation lookaside buffer.
  *
@@ -45,6 +55,55 @@ uintptr_t read_cr3() {
  */
 void invalidate_tlb(uintptr_t virtual_address) {
    __asm__("invlpg (%0)" :: "r" (virtual_address) : "memory");
+}
+
+/**
+ * This function unmaps everything in the lower half of an address space with level 4 page table at address root.
+ *
+ * \param root     Pointer to the top-level page structure
+ */
+void unmap_lower_half(uintptr_t root) {
+  // We can reclaim memory used to hold page tables, but NOT the mapped pages
+  pt_entry_t* l4_table = (pt_entry_t*) phys_to_vir((void*)root);
+  for (size_t l4_index = 0; l4_index < 256; l4_index++) {
+
+    // Does this entry point to a level 3 table?
+    if (l4_table[l4_index].present) {
+
+      // Yes. Mark the entry as not present in the level 4 table
+      l4_table[l4_index].present = false;
+
+      // Now loop over the level 3 table
+      pt_entry_t* l3_table = (pt_entry_t*) phys_to_vir((void*) (l4_table[l4_index].address << 12));
+      for (size_t l3_index = 0; l3_index < 512; l3_index++) {
+
+        // Does this entry point to a level 2 table?
+        if (l3_table[l3_index].present && !l3_table[l3_index].page_size) {
+
+          // Yes. Loop over the level 2 table
+          pt_entry_t* l2_table = (pt_entry_t*) phys_to_vir((void*) (l3_table[l3_index].address << 12));
+          for (size_t l2_index = 0; l2_index < 512; l2_index++) {
+
+            // Does this entry point to a level 1 table?
+            if (l2_table[l2_index].present && !l2_table[l2_index].page_size) {
+
+              // Yes. Free the physical page the holds the level 1 table
+              pmem_free(l2_table[l2_index].address << 12);
+            }
+          }
+
+          // Free the physical page that held the level 2 table
+          pmem_free(l3_table[l3_index].address << 12);
+        }
+      }
+
+      // Free the physical page that held the level 3 table
+      pmem_free(l4_table[l4_index].address << 12);
+    }
+  }
+
+  // Reload CR3 to flush any cached address translations
+  write_cr3(read_cr3());
 }
 
 // This function was provided by Professor Curtsinger.
@@ -153,6 +212,11 @@ void print_freelist(int num_print) {
     cursor = cursor->next;
   }
   kprintf("\n");
+}
+
+// Returns the first item on the freelist as a virtual address.
+uintptr_t peek_freelist() {
+  return (uintptr_t) phys_to_vir((void*) top);
 }
 
 /**

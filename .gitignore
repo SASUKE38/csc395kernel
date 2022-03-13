@@ -2,3 +2,6 @@ limine
 boot.iso
 kernel/kernel.elf
 kernel/obj
+stdlib/obj
+stdlib/libc.a
+init/obj

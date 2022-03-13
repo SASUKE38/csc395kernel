@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -141,6 +142,9 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
     case 1: // write
       rc = sys_write(arg0, (void*) arg1, arg2);
       break;
+    case 2: // mmap
+      rc = sys_mmap((void*) arg0, arg1, arg2, arg3, arg4, arg5);
+      break;
     default:
       rc = -1;
       break;
@@ -194,6 +198,7 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
         // Allocate a requested page, setting permissions to writable only for byte copying
         if (vm_map(read_cr3(), elf_phdr->p_vaddr + (i * PAGE_SIZE), 0, 1, 1) == false) {
           kprintf("run_exec_elf: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
+          return;
         }
         if (size_left >= PAGE_SIZE) size_left -= PAGE_SIZE;
         i++;
@@ -256,9 +261,24 @@ void _start(struct stivale2_struct* hdr) {
   kprintf("Initializing freelist...\n");
   freelist_init(start, end, (num_read / 2));
   kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
+  //unmap_lower_half(read_cr3());
+  
+  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
+  int* p = (int*)peek_freelist();
+  bool result = vm_map(root, (uintptr_t)p, false, true, false);
+  if (result) {
+    *p = 123;
+    kprintf("Stored %d at %p\n", *p, p);
+  } else {
+    kprintf("vm_map failed with an error\n");
+  }
+
+  void* test = mmap(NULL, 34, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  kprintf("test: %p\n", test);
 
   // Process modules
   run_exec_elf("init", modules_tag);
+  print_freelist(5);
 
   // Loop forever, reading characters
   while (1) {
