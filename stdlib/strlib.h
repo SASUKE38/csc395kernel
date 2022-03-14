@@ -43,3 +43,22 @@ int strcmp(const char* s1, const char* s2);
  * \returns A pointer to the destination string
  */
 char* strcpy(char* dest, const char* src);
+
+/**
+ * Extracts a token from a given string based on determined by a series of delimters. 
+ * The returned string is *stringp, but with the first delimiter found replaced with a null terminator.
+ * *stringp is then incremented to point to the byte after the found delimiter. If no delimiter is found,
+ * then *stringp is set to NULL while the original *stringp is returned.
+ * \param stringp Pointer to a string to search for delimters.
+ * \param delim The string containing possible delimters.
+ * \returns The original pointer, but with the first delimiter replaced with a null terminator (if one was found)
+ */
+char* strsep(char** stringp, const char* delim);
+
+/**
+ * Locates any character of a given string of characters in a given different string.
+ * \param s Pointer to a string to search for characters.
+ * \param accept The string containing possible characters.
+ * \returns A pointer to the first occurence of a character in accept, or NULL if no character is found
+ */
+char* strpbrk(const char* s, const char* accept);
