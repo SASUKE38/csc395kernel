@@ -112,7 +112,7 @@ char* strsep(char** stringp, const char* delim) {
  * \returns A pointer to the first occurence of a character in accept, or NULL if no character is found
  */
 char* strpbrk(const char* s, const char* accept) {
-  char* result = s;
+  char* result = (char*) s;
   bool found = false;
   for ( ; *result != '\0'; result++) {
     for (int j = 0; accept[j] != '\0'; j++) {
@@ -125,4 +125,63 @@ char* strpbrk(const char* s, const char* accept) {
   }
   if (!found) return NULL;
   else return result;
+}
+
+/**
+ * Tokenizes a string based on a given string of delimiters. Removes leading delimiters, then sets the first
+ * non-delimiter character in the given string to \0. If no tokens are found, NULL is returned. saveptr is used
+ * to store changes between calls; it should not be modified between calls. On every call after the first to parse
+ * the same string, str should be NULL.
+ * \param str The string to be tokenized. Should be NULL on all but the first call.
+ * \param delim The string containing delimiters.
+ * \param saveptr Pointer that saves the tokenizing progress between calls. Should not be modified between calls.
+ * \returns A pointer to the next token, null-terminated.
+ */
+char* strtok_r(char* str, const char* delim, char** saveptr) {
+  if (str == NULL && saveptr == NULL) return NULL;
+  char* str_active = (str == NULL ? *saveptr : str);
+  if (stringlen(str_active) == 0) {
+    *saveptr = "\0";
+    return NULL;
+  }
+  bool start = false;
+  // Loop over the active string's characters
+  int num_pos = 0;
+  for (int i = 0; i < stringlen(str_active); i++) {
+    // Loop over the delimiters. If a current character is a delimiter, 
+    // increase the number of positions to advance the start pointer.
+    for (int j = 0; j < stringlen(delim); j++) {
+      if (str_active[i] == delim[j]) {
+        num_pos++;
+        break;
+      }
+      // Stop if the current character was not found in the delimiter string.
+      if (j == stringlen(delim) - 1) {
+        start = true;
+      }
+    }
+    if (start) break;
+  }
+  // Return NULL if a start position was not found
+  if (!start || num_pos == stringlen(str_active)) {
+    *saveptr = "\0";
+    return NULL;
+  }
+  str_active += num_pos;
+  
+  char* new_start = str_active;
+  bool found = false;
+  // Loop over the remaining posiitons to find the first non-delimiter character.
+  for ( ; *str_active != '\0'; str_active++) {
+    for (int i = 0; delim[i] != '\0'; i++) {
+      if (*str_active == delim[i]) {
+        found = true;
+        *str_active = '\0';
+        break;
+      }
+    }
+    if (found) break;
+  }
+  *saveptr = str_active + 1;
+  return new_start;
 }

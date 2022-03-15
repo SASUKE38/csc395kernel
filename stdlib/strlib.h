@@ -62,3 +62,15 @@ char* strsep(char** stringp, const char* delim);
  * \returns A pointer to the first occurence of a character in accept, or NULL if no character is found
  */
 char* strpbrk(const char* s, const char* accept);
+
+/**
+ * Tokenizes a string based on a given string of delimiters. Removes leading delimiters, then sets the first
+ * non-delimiter character in the given string to \0. If no tokens are found, NULL is returned. saveptr is used
+ * to store changes between calls; it should not be modified between calls. On every call after the first to parse
+ * the same string, str should be NULL.
+ * \param str The string to be tokenized. Should be NULL on all but the first call.
+ * \param delim The string containing delimiters.
+ * \param saveptr Pointer that saves the tokenizing progress between calls. Should not be modified between calls.
+ * \returns A pointer to the next token, null-terminated.
+ */
+char* strtok_r(char* str, const char* delim, char** saveptr);
