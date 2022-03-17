@@ -171,7 +171,7 @@ char* strtok_r(char* str, const char* delim, char** saveptr) {
   
   char* new_start = str_active;
   bool found = false;
-  // Loop over the remaining posiitons to find the first non-delimiter character.
+  // Loop over the remaining posiitons to find the first delimiter character.
   for ( ; *str_active != '\0'; str_active++) {
     for (int i = 0; delim[i] != '\0'; i++) {
       if (*str_active == delim[i]) {

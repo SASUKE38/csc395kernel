@@ -208,7 +208,7 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       memcpy((void*)elf_phdr->p_vaddr, (const void*) ((uintptr_t) elf_hdr + (uintptr_t) elf_phdr->p_offset), elf_phdr->p_filesz);
       
       // Change the permissions to those requested by the file.
-      vm_protect(read_cr3(), elf_phdr->p_vaddr, ((elf_phdr->p_flags & 0x4) >> 2), ((elf_phdr->p_flags & 0x2) >> 1), ~(elf_phdr->p_flags & 0x1) & 0x1);
+      vm_protect(read_cr3(), elf_phdr->p_vaddr, 1, ((elf_phdr->p_flags & 0x2) >> 1), ~(elf_phdr->p_flags & 0x1) & 0x1);
     }
     elf_phdr++;
   }
@@ -261,7 +261,7 @@ void _start(struct stivale2_struct* hdr) {
   kprintf("Initializing freelist...\n");
   freelist_init(start, end, (num_read / 2));
   kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
-  //unmap_lower_half(read_cr3());
+  unmap_lower_half(read_cr3());
   
   uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
   int* p = (int*)peek_freelist();
@@ -278,7 +278,17 @@ void _start(struct stivale2_struct* hdr) {
 
   // Process modules
   run_exec_elf("init", modules_tag);
-  print_freelist(5);
+  //print_freelist(5);
+
+  for (int i = 0; i < 5; i++) {
+    p = (int*) pmem_alloc();
+    kprintf("p: %p\n", p);
+  }
+  pmem_free((uintptr_t)p);
+  for (int i = 0; i < 5; i++) {
+    p = (int*) pmem_alloc();
+    kprintf("p: %p\n", p);
+  }
 
   // Loop forever, reading characters
   while (1) {
