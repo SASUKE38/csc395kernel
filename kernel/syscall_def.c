@@ -63,7 +63,7 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
   int i = 0;
   do {
     // Allocate a requested page, set permissions to writable only
-    if (vm_map(read_cr3(), address_to_map, ((flags & 0x4) >> 2), ((flags & 0x2) >> 1), ~(flags & 0x1) & 0x1) == false) {
+    if (vm_map(read_cr3(), address_to_map, 1, ((flags & 0x2) >> 1), ~(flags & 0x1) & 0x1) == false) {
       kprintf("mmap: failed to allocate memory for page %p\n", address_to_map);
       return -1;
     }
@@ -72,4 +72,8 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
     i++;
   } while (size_left >= PAGE_SIZE);
   return address_to_map;
+}
+
+int sys_exec(char* name) {
+  return 0;
 }

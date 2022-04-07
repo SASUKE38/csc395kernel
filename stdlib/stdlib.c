@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-extern int syscall(uint64_t nr, ...);
+extern int64_t syscall(uint64_t nr, ...);
 
 void* mmap(void *addr, size_t length, int prot, int flags, int fd, uint16_t offset) {
-  return syscall(SYS_mmap, addr, length, prot, flags, fd, offset);
+  return (void*) syscall(SYS_mmap, addr, length, prot, flags, fd, offset);
 }
 
 // Round a value x up to the next multiple of y

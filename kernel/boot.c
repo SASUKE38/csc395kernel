@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <strlib.h>
+#include <unistd.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -14,6 +15,8 @@
 #include "page.h"
 #include "syscall_def.h"
 #include "elf.h"
+#include "gdt.h"
+#include "usermode_entry.h"
 
 #define MEMMAP_TAG_ID 0x2187f79e8612de07
 #define HHDM_TAG_ID 0xb0ed257db18cb58f
@@ -213,9 +216,24 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
     elf_phdr++;
   }
   // Cast the entry point to a function pointer and jump to it
-  void (*entry_point) (void) = (void (*) (void)) elf_hdr->e_entry;
-  (*entry_point)();
-}
+  /*void (*entry_point) (void) = (void (*) (void)) elf_hdr->e_entry;
+  (*entry_point)();*/
+  // Pick an arbitrary location and size for the user-mode stack
+  uintptr_t user_stack = 0x70000000000;
+  size_t user_stack_size = 8 * PAGE_SIZE;
+
+  // Map the user-mode-stack
+  for(uintptr_t p = user_stack; p < user_stack + user_stack_size; p += 0x1000) {
+    // Map a page that is user-accessible, writable, but not executable
+    vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, p, true, true, false);
+  }
+
+  // And now jump to the entry point
+  usermode_entry(USER_DATA_SELECTOR | 0x3,            // User data selector with priv=3
+                  user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes
+                  USER_CODE_SELECTOR | 0x3,           // User code selector with priv=3
+                  elf_hdr->e_entry);                  // Jump to the entry point specified in the ELF file
+  }
 
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
@@ -231,6 +249,10 @@ void _start(struct stivale2_struct* hdr) {
   pic_init();
   // Initialize interrupt descriptor table
   idt_setup();
+
+  // Initialize gdt to prepare to switch to user mode
+  gdt_setup();
+
   pic_unmask_irq(1);
   // Set handler for system calls
   idt_set_handler(0x80, syscall_entry, IDT_TYPE_TRAP);
@@ -261,8 +283,9 @@ void _start(struct stivale2_struct* hdr) {
   kprintf("Initializing freelist...\n");
   freelist_init(start, end, (num_read / 2));
   kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
-  unmap_lower_half(read_cr3());
-  
+  unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
+  // End freelist initialization
+
   uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
   int* p = (int*)peek_freelist();
   bool result = vm_map(root, (uintptr_t)p, false, true, false);
@@ -273,14 +296,18 @@ void _start(struct stivale2_struct* hdr) {
     kprintf("vm_map failed with an error\n");
   }
 
-  void* test = mmap(NULL, 34, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  kprintf("test: %p\n", test);
+  //void* test = mmap(NULL, 34, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  //kprintf("test: %p\n", test);
 
+  uintptr_t test_page = 0x400000000;
+  vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);
+  write(1, "kernel\n", 7);
   // Process modules
   run_exec_elf("init", modules_tag);
   //print_freelist(5);
+  kprintf("returned from init\n");
 
-  for (int i = 0; i < 5; i++) {
+  /*for (int i = 0; i < 5; i++) {
     p = (int*) pmem_alloc();
     kprintf("p: %p\n", p);
   }
@@ -293,7 +320,7 @@ void _start(struct stivale2_struct* hdr) {
   // Loop forever, reading characters
   while (1) {
     kprintf("%c", kgetc());
-  }
+  }*/
 
 	// We're done, just hang...
 	halt();

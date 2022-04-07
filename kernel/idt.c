@@ -7,6 +7,7 @@
 #include "port.h"
 #include "key.h"
 #include "idt.h"
+#include "gdt.h"
 
 typedef struct interrupt_context {
   uintptr_t ip;
@@ -193,9 +194,9 @@ void idt_set_handler(uint8_t index, void* fn, uint8_t type) {
 
   idt[index].type = type;
   idt[index].present = 1; // entry is present
-  idt[index].dpl = 0; // run the handler in kernel mode
+  idt[index].dpl = 3; // handler can be run in user mode
   idt[index].ist = 0; // we aren't using an interrupt stack table, so just pass 0
-  idt[index].selector = IDT_CODE_SELECTOR;
+  idt[index].selector = KERNEL_CODE_SELECTOR;
 }
 
 // This struct is used to load an IDT once we've set it up
