@@ -106,24 +106,37 @@ void printf(const char* format, ...) {
   va_end(args);
 }
 
-// broken
 int64_t getline(char** lineptr, size_t* n) {
-  if (lineptr == NULL) return -1;
-  if (*lineptr == NULL && *n == 0) {
-    *lineptr = malloc(sizeof(char) * 1);
-    *n += 1;
+  if (*lineptr == NULL || *n == 0) {
+    *lineptr = malloc(sizeof(char) * 120);
+    *n = 120;
+  } else if (*lineptr == NULL) {
+    *lineptr = malloc(sizeof(char) * *n);
   }
-  int pos = 0;
+  int64_t num_read = -1;
+  char current;
+  char* cursor = *lineptr;
   while (1) {
-    read(0, lineptr[pos], 1);
-    if (*lineptr[pos] == '\n') break;
-    pos++;
-    if (pos == *n) {
-      char* new_space = malloc(sizeof(char) * pos + 1);
-      memcpy(new_space, *lineptr, pos);
+    read(0, &current, 1);
+    //current = getchar2();
+    //printf("current: %c\n", current);
+    num_read++;
+    if (*n <= num_read) {
+      *n *= 2;
+      char* temp = *lineptr;
+      *lineptr = malloc(sizeof(char) * *n);
+      memcpy(*lineptr, temp, num_read);
+      free(temp);
+      cursor = *lineptr + num_read;
+    }
+    *cursor = current;
+    cursor++;
+    if (current == '\n') {
+      cursor[1] = '\0';
+      break;
     }
   }
-  return pos;
+  return (num_read == 0 ? num_read : num_read + 1);
 }
 
 void perror(const char *s) {
