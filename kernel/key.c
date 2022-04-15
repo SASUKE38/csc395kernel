@@ -160,6 +160,7 @@ char kgetc() {
   char result = key_buffer[buffer_read++];
   buffer_read %= BUFFER_SIZE;
   buffer_count--;
+  kprint_c(result);
   return result;
 }
 

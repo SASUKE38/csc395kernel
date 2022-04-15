@@ -4,15 +4,18 @@
 #include "page.h"
 #include "kprint.h"
 #include "key.h"
+#include "loader.h"
 
 #define BACKSPACE 8
+
+uintptr_t mmap_next_start = 0x9000000000;
 
 int64_t sys_read(int16_t fd, void *buf, uint16_t count) {
   int64_t num_read = 0;
   char* result_buf = (char*) buf;
   // Check that fd is 0
   if (fd != 0) {
-    kprintf("read: invalid file descriptor provided, received %d\n", fd);
+    // Return -1 if an invalid file descriptor was provided
     return -1;
   }
   char current;
@@ -47,33 +50,40 @@ int64_t sys_write(int16_t fd, const void *buf, uint16_t count) {
   }
     return num_written;
   }
-  kprintf("write: invalid file descriptor provided, received %d\n", fd);
+  // Return -1 if an invalid file descriptor was provided
   return -1;
 }
 
 int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_t offset) {
-  if (length <= 0) return -1;
+  if (length <= 0) return -1; // length must be greater than 0
   uintptr_t address_to_map;
   if (addr == NULL) {
-    address_to_map = peek_freelist();
+    address_to_map = mmap_next_start;
   } else {
     address_to_map = (uintptr_t) addr;
   }
-  uint64_t size_left = length;
-  int i = 0;
+  uintptr_t result = address_to_map;
+  int64_t size_left = length;
   do {
-    // Allocate a requested page, set permissions to writable only
+    // Allocate a requested page, set permissions to requested permissions
     if (vm_map(read_cr3(), address_to_map, 1, ((flags & 0x2) >> 1), ~(flags & 0x1) & 0x1) == false) {
-      kprintf("mmap: failed to allocate memory for page %p\n", address_to_map);
+      // Return -1 if the mapping failed
       return -1;
     }
-    if (addr == NULL) address_to_map = peek_freelist();
-    if (size_left >= PAGE_SIZE) size_left -= PAGE_SIZE;
-    i++;
-  } while (size_left >= PAGE_SIZE);
-  return address_to_map;
+    // Advance to the next possible page to allocate
+    mmap_next_start += PAGE_SIZE;
+    if (addr == NULL) address_to_map = mmap_next_start;
+    /*if (size_left >= PAGE_SIZE)*/ size_left -= PAGE_SIZE;
+  } while (size_left > 0);
+  return result;
 }
 
-int sys_exec(char* name) {
+int64_t sys_exec(char* name) {
+  unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
+  run_exec_elf(name, get_modules_tag());
+  return -1;
+}
+
+int64_t sys_exit() {
   return 0;
 }

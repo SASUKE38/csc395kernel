@@ -5,6 +5,8 @@
 #include <strlib.h>
 #include <unistd.h>
 
+#include <stdio.h>
+
 #include "stivale2.h"
 #include "util.h"
 
@@ -28,6 +30,7 @@
 #define SYS_write 1
 
 uint64_t hhdm_base_global;
+struct stivale2_struct_tag_modules* modules_tag_global;
 
 // Reserve space for the stack
 static uint8_t stack[8192];
@@ -135,6 +138,10 @@ void* phys_to_vir(void* ptr) {
   return (void*) (hhdm_base_global + (uint64_t) ptr);
 }
 
+struct stivale2_struct_tag_modules* get_modules_tag() {
+  return modules_tag_global;
+}
+
 int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
   int64_t rc;
   // pick a system call
@@ -148,6 +155,9 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
     case 2: // mmap
       rc = sys_mmap((void*) arg0, arg1, arg2, arg3, arg4, arg5);
       break;
+    case 3: // exec
+      rc = sys_exec((char*) arg0);
+      break;
     default:
       rc = -1;
       break;
@@ -158,90 +168,14 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
 extern int64_t syscall(uint64_t nr, ...);
 extern void syscall_entry();
 
-// Probably add check that the requested module is an elf
-void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
-  // Get the number of modules
-  uint16_t count = modules_tag->module_count;
-  struct stivale2_module* current;
-  elf_hdr_t* elf_hdr = NULL;
-  elf_phdr_t* elf_phdr = NULL;
-  uint16_t phnum;
-  int index = 0;
-  // Loop over the modules until the requested one is found
-  while (index < count) {
-    current = &modules_tag->modules[index++];
-    if (strcmp(current->string, mod_name) == 0) {
-      // Cast the module start address to the elf header
-      elf_hdr = (elf_hdr_t*) current->begin;
-      // Calculate and store the address of the start of the program header table 
-      elf_phdr = (elf_phdr_t*) (current->begin + elf_hdr->e_phoff);
-      phnum = elf_hdr->e_phnum;
-      break;
-    } else if (index >= count) {
-      kprintf("run_exec_elf: requested file not found in modules\n");
-      return;
-    }
-  }
-  // Make sure the file is executable
-  if (elf_hdr->e_type != ET_EXEC) {
-    kprintf("run_exec_elf: attempted to execute non-executable ELF file\n");
-    return;
-  }
-  
-  // Loop over the program table entries and allocate memory for loadable segments
-  for (int i = 0; i < phnum; i++) {
-    if (elf_phdr->p_type == PT_LOAD) {
-      // Skip NULL sections
-      if (elf_phdr->p_vaddr == 0x0) continue;
-      
-      // Allocate the segment's requested memory; if it is larger than a page, call vm_map enough times to accomodate the requested chunk
-      uint64_t size_left = elf_phdr->p_memsz;
-      int i = 0;
-      do {
-        // Allocate a requested page, setting permissions to writable only for byte copying
-        if (vm_map(read_cr3(), elf_phdr->p_vaddr + (i * PAGE_SIZE), 0, 1, 1) == false) {
-          kprintf("run_exec_elf: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
-          return;
-        }
-        if (size_left >= PAGE_SIZE) size_left -= PAGE_SIZE;
-        i++;
-      } while (size_left >= PAGE_SIZE);
-
-      // Copy the segment's data into the requested page
-      memcpy((void*)elf_phdr->p_vaddr, (const void*) ((uintptr_t) elf_hdr + (uintptr_t) elf_phdr->p_offset), elf_phdr->p_filesz);
-      
-      // Change the permissions to those requested by the file.
-      vm_protect(read_cr3(), elf_phdr->p_vaddr, 1, ((elf_phdr->p_flags & 0x2) >> 1), ~(elf_phdr->p_flags & 0x1) & 0x1);
-    }
-    elf_phdr++;
-  }
-  // Cast the entry point to a function pointer and jump to it
-  /*void (*entry_point) (void) = (void (*) (void)) elf_hdr->e_entry;
-  (*entry_point)();*/
-  // Pick an arbitrary location and size for the user-mode stack
-  uintptr_t user_stack = 0x70000000000;
-  size_t user_stack_size = 8 * PAGE_SIZE;
-
-  // Map the user-mode-stack
-  for(uintptr_t p = user_stack; p < user_stack + user_stack_size; p += 0x1000) {
-    // Map a page that is user-accessible, writable, but not executable
-    vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, p, true, true, false);
-  }
-
-  // And now jump to the entry point
-  usermode_entry(USER_DATA_SELECTOR | 0x3,            // User data selector with priv=3
-                  user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes
-                  USER_CODE_SELECTOR | 0x3,           // User code selector with priv=3
-                  elf_hdr->e_entry);                  // Jump to the entry point specified in the ELF file
-  }
-
 void _start(struct stivale2_struct* hdr) {
   // We've booted! Let's start processing tags passed to use from the bootloader
   // Find the hhdm tag
   struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
   hhdm_base_global = hhdm_tag->addr;
   // Find the module tag
-  struct stivale2_struct_tag_modules* modules_tag = find_tag(hdr, MODULES_TAG_ID);
+  //struct stivale2_struct_tag_modules* modules_tag = find_tag(hdr, MODULES_TAG_ID);
+  modules_tag_global = find_tag(hdr, MODULES_TAG_ID);
 
   term_init();
 
@@ -296,17 +230,34 @@ void _start(struct stivale2_struct* hdr) {
     kprintf("vm_map failed with an error\n");
   }
 
-  //void* test = mmap(NULL, 34, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  //kprintf("test: %p\n", test);
+  /*int* test = (int*) mmap(NULL, PAGE_SIZE * 7 + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  kprintf("test: %p\n", test);
+
+  *test = 3456;
+  kprintf("Stored %d at %p\n", *test, test);
+
+  int* test2 = (int*) mmap(NULL, 34, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  kprintf("test2: %p\n", test2);
+
+  *test2 = 345678765;
+  kprintf("Stored %d at %p\n", *test2, test2);*/
 
   uintptr_t test_page = 0x400000000;
   vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);
   write(1, "kernel\n", 7);
+
+  char* line_test = NULL;
+  size_t line_size = 0;
+  kprintf("input to line test: \n");
+  getline(&line_test, &line_size);
+  kprintf("read: %s\n", line_test);
+
   // Process modules
-  run_exec_elf("init", modules_tag);
+  //run_exec_elf("init", modules_tag_global);
+  exec("init");
   //print_freelist(5);
   kprintf("returned from init\n");
-
+  while (1);
   /*for (int i = 0; i < 5; i++) {
     p = (int*) pmem_alloc();
     kprintf("p: %p\n", p);

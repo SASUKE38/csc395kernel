@@ -118,8 +118,7 @@ int64_t getline(char** lineptr, size_t* n) {
   char* cursor = *lineptr;
   while (1) {
     read(0, &current, 1);
-    //current = getchar2();
-    //printf("current: %c\n", current);
+    //write(1, &current, 1);
     num_read++;
     if (*n <= num_read) {
       *n *= 2;

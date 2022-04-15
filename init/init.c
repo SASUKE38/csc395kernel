@@ -11,6 +11,7 @@
 //extern int syscall(uint64_t nr, ...);
 
 void _start() {
+  printf("BEGIN INIT\n");
   //for (;;) {}
   /*syscall(SYS_write, 1, "Input to init:\n", 15);
   // Issue a read system call
@@ -23,14 +24,14 @@ void _start() {
   syscall(SYS_write, 1, "\n", 1);
   syscall(SYS_write, 1, "returning from init\n", 20);*/
 
-  char* test_page = (char*)0x400000000;
+  /*char* test_page = (char*)0x400000000;
   test_page[0] = 'h';
   test_page[1] = 'e';
   test_page[2] = 'l';
   test_page[3] = 'l';
   test_page[4] = 'o';
   test_page[5] = '\n';
-  write(1, test_page, 6);
+  write(1, test_page, 6);*/
 
   write(1, "Input to init:\n", 15);
   // Issue a read system call
@@ -38,18 +39,18 @@ void _start() {
   read(0, buf, 5);
 
   // Write output
-  write(1, "read: ", 6);
+  write(1, "\nread: ", 7);
   write(1, buf, 5);
   write(1, "\n", 1);
   printf("printf tests:\n");
   printf("char: %c\n", 'h');
   printf("integer: %d\n", 45);
   printf("hex: %x\n", 466);
-  printf("pointer: %p\n", 382743);
+  printf("pointer: %p, hex:%x,int: %d, char: %c\n", 382743, 3847, 45, 'g');
   printf("string: %s\n", "string");
   write(1, "init finished\n", 14);
 
-  //mmap(NULL, 3, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  
 
   // Loop forever
   for(;;){}
