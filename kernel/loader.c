@@ -28,13 +28,14 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       phnum = elf_hdr->e_phnum;
       break;
     } else if (index >= count) {
-      kprintf("run_exec_elf: requested file not found in modules\n");
+      kprintf("Load error: requested file not found in modules\n");
       return;
     }
   }
+  unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
   // Make sure the file is executable
   if (elf_hdr->e_type != ET_EXEC) {
-    kprintf("run_exec_elf: attempted to execute non-executable ELF file\n");
+    kprintf("Load error: attempted to execute non-executable ELF file\n");
     return;
   }
   
@@ -59,7 +60,7 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       do {
         // Allocate a requested page, setting permissions to writable only for byte copying
         if (vm_map(read_cr3(), vaddr_to_map + (i * PAGE_SIZE), 0, 1, 1) == false) {
-          kprintf("run_exec_elf: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
+          kprintf("Load error: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
           return;
         }
         size_left -= PAGE_SIZE;

@@ -1,10 +1,12 @@
 #include <stdint.h>
+#include <strlib.h>
 #include <stdbool.h>
 
 #include "page.h"
 #include "kprint.h"
 #include "key.h"
 #include "loader.h"
+#include "elf.h"
 
 #define BACKSPACE 8
 
@@ -73,17 +75,17 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
     // Advance to the next possible page to allocate
     mmap_next_start += PAGE_SIZE;
     if (addr == NULL) address_to_map = mmap_next_start;
-    /*if (size_left >= PAGE_SIZE)*/ size_left -= PAGE_SIZE;
+    size_left -= PAGE_SIZE;
   } while (size_left > 0);
   return result;
 }
 
 int64_t sys_exec(char* name) {
-  unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
   run_exec_elf(name, get_modules_tag());
   return -1;
 }
 
 int64_t sys_exit() {
-  return 0;
+  sys_exec("init");
+  return -1;
 }

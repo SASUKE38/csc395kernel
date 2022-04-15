@@ -26,3 +26,5 @@ void free(void* p);
  * \returns The parsed integer.
  */
 int atoi(const char* nptr);
+
+int64_t exit();

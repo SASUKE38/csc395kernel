@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#define SYS_exit 4
+
 extern int64_t syscall(uint64_t nr, ...);
 
 void* mmap(void *addr, size_t length, int prot, int flags, int fd, uint16_t offset) {
@@ -61,4 +63,8 @@ int atoi(const char *nptr) {
     } else break;
   }
   return result;
+}
+
+int64_t exit() {
+  return syscall(SYS_exit);
 }

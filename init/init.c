@@ -4,26 +4,19 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#define SYS_read 0
-#define SYS_write 1
-
-//extern int syscall(uint64_t nr, ...);
+#include <strlib.h>
 
 void _start() {
-  printf("BEGIN INIT\n");
-  //for (;;) {}
-  /*syscall(SYS_write, 1, "Input to init:\n", 15);
-  // Issue a read system call
-  char buf[6];
-  syscall(SYS_read, 0, buf, 5);
-
-  // Write output
-  syscall(SYS_write, 1, "read: ", 6);
-  syscall(SYS_write, 1, buf, 5);
-  syscall(SYS_write, 1, "\n", 1);
-  syscall(SYS_write, 1, "returning from init\n", 20);*/
-
+  printf("Shell\n");
+  char* input = NULL;
+  size_t input_length = 0;
+  do {
+    printf("> ");
+    getline(&input, &input_length);
+    char* input_trunc = strsep(&input, "\n");
+    exec(input_trunc);
+    printf("Error executing command.\n");
+  } while (1);
   /*char* test_page = (char*)0x400000000;
   test_page[0] = 'h';
   test_page[1] = 'e';

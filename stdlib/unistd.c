@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define SYS_read 0
 #define SYS_write 1
@@ -18,5 +19,6 @@ int64_t write(int fd, const void *buf, size_t count) {
 }
 
 int64_t exec(char* name) {
-  return syscall(SYS_exec, name);
+  syscall(SYS_exec, name);
+  return -1;
 }

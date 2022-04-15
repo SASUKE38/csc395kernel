@@ -19,6 +19,7 @@
 #include "elf.h"
 #include "gdt.h"
 #include "usermode_entry.h"
+#include "loader.h"
 
 #define MEMMAP_TAG_ID 0x2187f79e8612de07
 #define HHDM_TAG_ID 0xb0ed257db18cb58f
@@ -158,6 +159,9 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
     case 3: // exec
       rc = sys_exec((char*) arg0);
       break;
+    case 4: // exit
+      rc = sys_exit();
+      break;
     default:
       rc = -1;
       break;
@@ -220,16 +224,6 @@ void _start(struct stivale2_struct* hdr) {
   unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
   // End freelist initialization
 
-  uintptr_t root = read_cr3() & 0xFFFFFFFFFFFFF000;
-  int* p = (int*)peek_freelist();
-  bool result = vm_map(root, (uintptr_t)p, false, true, false);
-  if (result) {
-    *p = 123;
-    kprintf("Stored %d at %p\n", *p, p);
-  } else {
-    kprintf("vm_map failed with an error\n");
-  }
-
   /*int* test = (int*) mmap(NULL, PAGE_SIZE * 7 + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   kprintf("test: %p\n", test);
 
@@ -242,21 +236,21 @@ void _start(struct stivale2_struct* hdr) {
   *test2 = 345678765;
   kprintf("Stored %d at %p\n", *test2, test2);*/
 
-  uintptr_t test_page = 0x400000000;
-  vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);
-  write(1, "kernel\n", 7);
+  // User mode test
+  /*uintptr_t test_page = 0x400000000;
+  vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);*/
+  //write(1, "kernel\n", 7);
 
-  char* line_test = NULL;
+  /*char* line_test = NULL;
   size_t line_size = 0;
   kprintf("input to line test: \n");
   getline(&line_test, &line_size);
-  kprintf("read: %s\n", line_test);
+  kprintf("read: %s\n", line_test);*/
 
   // Process modules
   //run_exec_elf("init", modules_tag_global);
-  exec("init");
+  run_exec_elf("init", get_modules_tag());
   //print_freelist(5);
-  kprintf("returned from init\n");
   while (1);
   /*for (int i = 0; i < 5; i++) {
     p = (int*) pmem_alloc();
