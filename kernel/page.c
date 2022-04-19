@@ -13,6 +13,7 @@ typedef struct freelist_node {
 // Freelist of physical addresses
 freelist_node_t* top = NULL;
 
+// This struct matches the layout of a page table entry.
 typedef struct page_table_entry {
   bool present : 1;
   bool writable : 1;
@@ -28,22 +29,35 @@ typedef struct page_table_entry {
   bool no_execute : 1;
 } __attribute__((packed)) pt_entry_t;
 
+/** Reads the value of the cr0 register.
+* \returns The value of the cr0 register.
+*/
 uint64_t read_cr0() {
   uintptr_t value;
   __asm__("mov %%cr0, %0" : "=r" (value));
   return value;
 }
 
+/** Writes a value to the cr0 register.
+* \param value The value to write
+*/
 void write_cr0(uint64_t value) {
   __asm__("mov %0, %%cr0" : : "r" (value));
 }
 
+/**
+ * Obtain a pointer to the top-level page structure.
+ * \returns a pointer to the top-level page structure.
+ */
 uintptr_t read_cr3() {
   uintptr_t value;
   __asm__("mov %%cr3, %0" : "=r" (value));
   return value;
 }
 
+/** Writes a value to the cr3 register.
+* \param value The value to write
+*/
 void write_cr3(uint64_t value) {
   __asm__("mov %0, %%cr3" : : "r" (value));
 }
@@ -132,8 +146,11 @@ void translate(void* address) {
   kprintf("   index 3 = %p\n",  indices[3]);
   kprintf("   index 4 = %p\n",  indices[4]);*/
 
+  // Loop over the page table levels, printing information as they are reached.
   for (int i = 4; i > 0; i--) {
+    // Get the section of the address for the current level.
     uint16_t index = indices[i];
+    // Print the levels information.
     kprintf("table[index] at %p: %p\n", &table[index], table[index]);
     if (table[index].present == 1) {
       kprintf("%s", table[index].user ? "user" : "kernel");
@@ -145,6 +162,7 @@ void translate(void* address) {
       }
       kprintf(" ->");
 
+      // Progress to the next level.
       table_phys = table[index].address << 12;
       kprintf(" %p\n", table_phys);
       table = (pt_entry_t*)phys_to_vir((void*)table_phys);
@@ -153,10 +171,18 @@ void translate(void* address) {
       return;
     }
   }
+  // Print the final mapping.
   kprintf("%p maps to %p\n", address, (table_phys + indices[0]));
 }
 
-
+/**
+ * Initializes the system's freelist. 
+ * Takes an array of memory sections and adds all the pages in that section to the freelist.
+ *
+ * \param start Pointer that is the start of the current memory section.
+ * \param end Pointer that is the end of the current memory section.
+ * \param num_sections The number of memory sections to process.
+ */
 void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
   uint64_t start_addr = *start;
   uint64_t end_addr = *end;
@@ -179,8 +205,10 @@ void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections) {
  */
 uintptr_t pmem_alloc() {
   if (top == NULL) return 0;
+  // Get a page from the top of the freelist. 
   freelist_node_t* vtop = phys_to_vir((void*) top);
   freelist_node_t* temp = top;
+  // Advance the freelist to the next entry.
   top = vtop->next;
   return (uintptr_t) temp;
 }
@@ -190,21 +218,24 @@ uintptr_t pmem_alloc() {
  * \param p is the physical address of the page to free, which must be page-aligned.
  */
 void pmem_free(uintptr_t p) {
+  // Don't free NULL
   if ((void*) p == NULL) {
     kprintf("pmem_free: attempted to free NULL\n");
     return;
   }
+  // Don't free a pointer that isn't page-aligned
   if (p % PAGE_SIZE != 0) {
     kprintf("pmem_free: attempted to free a pointer that is not page-aligned\n");
     return;
   }
+  // Add the node to the freelist.
   freelist_node_t* new_node = (freelist_node_t*) p;
   freelist_node_t* vnew_node = phys_to_vir((void*) new_node);
   vnew_node->next = top;
   top = new_node;
 }
 
-// Print a specified number of elements of the freelist. For debugging
+// Print a specified number of elements of the freelist. For debugging. Broken, I think
 void print_freelist(int num_print) {
   freelist_node_t* cursor = top;
   for (int i = 0; i < num_print; i++) {
@@ -214,7 +245,7 @@ void print_freelist(int num_print) {
   kprintf("\n");
 }
 
-// Returns the first item on the freelist as a virtual address.
+// Returns the first item on the freelist as a virtual address. Doesn't really have a purpose.
 uintptr_t peek_freelist() {
   return (uintptr_t) phys_to_vir((void*) top);
 }
@@ -299,19 +330,26 @@ bool vm_unmap(uintptr_t root, uintptr_t address) {
   pt_entry_t* table = (pt_entry_t*) phys_to_vir((void*)table_phys);
   uint16_t index = 0;
   pt_entry_t* to_free;
+  // Traverse the page table.
   for (int i = 4; i > 0; i--) {
     index = indices[i];
-    kprintf("level: %d\n", i);
-    kprintf("table[index].address in loop: %p\n", table[index].address);
+    //kprintf("level: %d\n", i);
+    //kprintf("table[index].address in loop: %p\n", table[index].address);
+    // If the entry wasn't present, return false.
     if (table[index].present == 0) return false;
+    // If the current level is the lowest one, save it.
     if (i == 1) to_free = table;
+    // Advance to the next level.
     table_phys = table[index].address << 12;
     table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }
+  // Set the present bit to 0 to unmap it.
   to_free[index].present = 0;
-  kprintf("to_free after traversal: %p\n", to_free);
-  kprintf("table[index].address after traversal: %p\n", to_free[index].address);
+  //kprintf("to_free after traversal: %p\n", to_free);
+  //kprintf("table[index].address after traversal: %p\n", to_free[index].address);
+  // Free that address.
   pmem_free((uintptr_t)(to_free[index].address << 12));
+  // Update the tlb.
   invalidate_tlb((uintptr_t) phys_to_vir((void*) address));
   return true;
 }
@@ -351,7 +389,7 @@ bool vm_protect(uintptr_t root, uintptr_t address, bool user, bool writable, boo
       table[index].writable = writable;
       table[index].no_execute = executable;
     }
-
+    // Move to the next level.
     table_phys = table[index].address << 12;
     table = (pt_entry_t*)phys_to_vir((void*)table_phys);
   }

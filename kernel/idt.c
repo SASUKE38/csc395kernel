@@ -9,6 +9,7 @@
 #include "idt.h"
 #include "gdt.h"
 
+// This struct matches the layout of an interrupt context.
 typedef struct interrupt_context {
   uintptr_t ip;
   uint64_t cs;
@@ -213,7 +214,7 @@ void idt_setup() {
   // Zero out the IDT
   memset(idt, 0, 256);
 
-  // Use idt_set_handler() to set handlers for the standard exceptions (0--21)
+  // Set handlers for the standard exceptions (0--21)
   idt_set_handler(0, &divide_error_handler, IDT_TYPE_TRAP);
   idt_set_handler(1, &debug_exception_handler, IDT_TYPE_TRAP);
   idt_set_handler(2, &NMI_interrupt_handler, IDT_TYPE_INTERRUPT);

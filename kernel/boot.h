@@ -2,8 +2,15 @@
 
 #include "stivale2.h"
 
-// Add the hhdm base to a pointer to convert it to a virtual address
+/**
+ * Converts a pointer representing a physical address to its virtual address.
+ * \param ptr A pointer to be converted.
+ * \returns The converted pointer.
+ */
 void* phys_to_vir(void* ptr);
 
-// Get the pointer to the modules tag stored in the global variable
+/**
+ * Obtains the modules tag provided by the bootloader.
+ * \returns A pointer to the modules tag.
+ */
 struct stivale2_struct_tag_modules* get_modules_tag();

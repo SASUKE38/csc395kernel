@@ -1,0 +1,53 @@
+1. Input/Output - 3
+
+The kernel provides a kprintf function that supports the %c, %s, %d, %x, and %p flags, as seen by the tests in boot.c.
+
+2. Exceptions - 3
+
+All of the standard exceptions have handlers set by the functions in idt.c. This is done by the kernel's call to idt_setup.
+Using the inline assembly in the commented-out exceptions test area of boot.c indicates that these handlers have been set up.
+
+
+3. Virtual Memory - 3
+
+Unmapping the lower half does not cause vm_map to stop working, so it is likely using virtual pages in the
+higher half. It also uses the phys_to_vir function to convert physical pages from the freelist to virtual pages. Since the init
+program is able to be loaded, it can allocate pages requested by a program.
+
+4. System Calls - 3
+
+The init program uses printf and getline, both of which use system calls to read from the keyboard or write to the terminal. 
+printf can correctly use a write system call to display a desired string to the terminal. getline can read characters from the keyboard using
+a read system call. program.c also contains test calls to read characters from the keyboard and write the input back to the terminal, which functions correctly.
+
+5. Loader - 3
+
+The kernel loads the init program after initial setup. Changing the permissions of the vm_protect function to those not 
+requested causes the init load or execution to page fault, so init's requested permissions are set. Given the correct permissions,
+init runs correctly.
+
+6. Standard Library - 3
+
+The kernel, init, and test program all link against a standard library. The functions provided by the standard library can thus
+be called from these programs. These functions are not duplicated and include string utilities, system call wrappers, and I/O tools.
+
+7. User Mode - 3
+
+The init program can be verified to have launched in user mode if lower half unmapping is disabled in the loader. Allocating a pre-determined location with
+vm_map and setting the user mode parameter to false causes the init program to produce a page fault when it attempts to write to that page. If this parameter is
+true, then the program can access this memory.
+
+8. Processes - 3
+
+The kernel provides an exec system call that allocates memory for and launches them. The loader unmaps the lower half and allocates memory for the program using the same
+loader used to load init initially. The exit system call reloads the init program when it is called. This can be observed in the test program, 
+which relaunches the shell once it finishes.
+
+9. Shell - 3
+
+init asks prints an indication that the shell has been launched, indicates it is awaiting user input by printing "> ", and launches a program from the kernel modules if the
+name specified by the user is in those modules. If the program is not found or some other memory error occurred, a different error message is displayed. If no input is given,
+input is requested again. The shell has some undesired behavior with backspace; backspace is not registered in read lines despite removing characters from the screen and the 
+shell prompt can be erased.
+
+10. Code Quality

@@ -8,14 +8,30 @@
 
 void _start() {
   printf("Shell\n");
-  char* input = NULL;
-  size_t input_length = 0;
+  char* input;
+  size_t input_length;
   do {
+    input = NULL;
+    input_length = 0;
     printf("> ");
     getline(&input, &input_length);
     char* input_trunc = strsep(&input, "\n");
-    exec(input_trunc);
-    printf("Error executing command.\n");
+    if (stringlen(input_trunc) == 0) continue;
+    int64_t rc = exec(input_trunc);
+    if (rc == -1) printf("Error: requested program not found.\n");
+    else if (rc == -2) printf("Error: requested file not executable.\n");
+    else if (rc == -3) printf("Error: failed to allocate memory for requested program.\n");
+    else printf("Error: failed to execute command.\n");
+    /* USER MODE TEST
+    char* test_page = (char*)0x400000000;
+    test_page[0] = 'h';
+    test_page[1] = 'e';
+    test_page[2] = 'l';
+    test_page[3] = 'l';
+    test_page[4] = 'o';
+    test_page[5] = '\n';
+    write(1, test_page, 6);*/
+    //exit(2);
   } while (1);
   /*char* test_page = (char*)0x400000000;
   test_page[0] = 'h';

@@ -5,6 +5,7 @@
 #define PAGE_SIZE 0x1000
 
 #define SYS_mmap 2
+#define SYS_exit 4
 
 #define PROT_NONE 0x0
 #define PROT_EXEC 0x1
@@ -27,4 +28,4 @@ void free(void* p);
  */
 int atoi(const char* nptr);
 
-int64_t exit();
+int64_t exit(uint64_t ex);

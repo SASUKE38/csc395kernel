@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ctype.h>
-
-#define SYS_exit 4
+#include <stdio.h>
+#include <unistd.h>
 
 extern int64_t syscall(uint64_t nr, ...);
 
@@ -55,16 +55,24 @@ void free(void* p) {
  */
 int atoi(const char *nptr) {
   int result = 0;
+  // Skip whitespace.
   while (isspace(*nptr) == 1) nptr++;
   for (int i = 0; nptr[i] != '\0'; i++) {
+    // If the current character is a number, add it to the parsed integer.
     if (isdigit(nptr[i]) == 1) {
+      // Shift the digits to make room for the new number.
       result *= 10;
+      // Convert the character to the proper number using its ASCII code.
       result += (nptr[i] - 48);
+    // End when a full number has been extracted.
     } else break;
   }
   return result;
 }
 
-int64_t exit() {
-  return syscall(SYS_exit);
+extern int64_t syscall(uint64_t nr, ...);
+
+int64_t exit(uint64_t ex) {
+  syscall(SYS_exit, ex);
+  return -1;
 }

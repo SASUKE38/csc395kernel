@@ -90,7 +90,10 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 	return NULL;
 }
 
-// Print usable memory using memmap and hhdm tags
+/**
+ * Prints memory usable by the kernel. 
+ * \param hdr Pointer to the stivale2 header structure provided by the bootloader.
+ */
 void print_mem_address(struct stivale2_struct* hdr) {
   // Find the hhdm and memmap tags in the list
   struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
@@ -114,6 +117,14 @@ void print_mem_address(struct stivale2_struct* hdr) {
   }
 }
 
+/**
+ * Fills an array with the start and end addresses of the usable memory regions.
+ * The even indices are the start addresses while the odd indices are the end addresses.
+ * Each pair of indices is one range.
+ * \param hdr A pointer to the stivale2 header structure.
+ * \param result The array to fill.
+ * \returns The number of regions found.
+ */
 uint16_t get_mem_address(struct stivale2_struct* hdr, uint64_t* result) {
   // Find the hhdm and memmap tags in the list
   struct stivale2_struct_tag_memmap* memmap_tag = find_tag(hdr, MEMMAP_TAG_ID);
@@ -135,14 +146,35 @@ uint16_t get_mem_address(struct stivale2_struct* hdr, uint64_t* result) {
   return index;
 }
 
+/**
+ * Converts a pointer representing a physical address to its virtual address.
+ * \param ptr A pointer to be converted.
+ * \returns The converted pointer.
+ */
 void* phys_to_vir(void* ptr) {
   return (void*) (hhdm_base_global + (uint64_t) ptr);
 }
 
+/**
+ * Obtains the modules tag provided by the bootloader.
+ * \returns A pointer to the modules tag.
+ */
 struct stivale2_struct_tag_modules* get_modules_tag() {
   return modules_tag_global;
 }
 
+/**
+ * Handles system calls by choosing the correct function to process a given call.
+ * The arguments passed must match those of the handler function.
+ * \param nr The system call number.
+ * \param arg0 The first argument to pass to the handler function.
+ * \param arg1 The second argument to pass to the handler function.
+ * \param arg2 The third argument to pass to the handler function.
+ * \param arg3 The fourth argument to pass to the handler function.
+ * \param arg4 The fifth argument to pass to the handler function.
+ * \param arg5 The sixth argument to pass to the handler function.
+ * \returns The value returned by the chosen handler function, or -1 if no function was chosen (invalid system call number)
+ */
 int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5) {
   int64_t rc;
   // pick a system call
@@ -160,7 +192,7 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
       rc = sys_exec((char*) arg0);
       break;
     case 4: // exit
-      rc = sys_exit();
+      rc = sys_exit(arg0);
       break;
     default:
       rc = -1;
@@ -169,7 +201,8 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
   return rc;
 }
 
-extern int64_t syscall(uint64_t nr, ...);
+//extern int64_t syscall(uint64_t nr, ...);
+// Assembly function to handle system calls. Calls syscall_handler.
 extern void syscall_entry();
 
 void _start(struct stivale2_struct* hdr) {
@@ -224,7 +257,7 @@ void _start(struct stivale2_struct* hdr) {
   unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
   // End freelist initialization
 
-  /*int* test = (int*) mmap(NULL, PAGE_SIZE * 7 + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  /*int* test = (int*) mmap(NULL, 0x5000 + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   kprintf("test: %p\n", test);
 
   *test = 3456;
@@ -236,36 +269,46 @@ void _start(struct stivale2_struct* hdr) {
   *test2 = 345678765;
   kprintf("Stored %d at %p\n", *test2, test2);*/
 
-  // User mode test
-  /*uintptr_t test_page = 0x400000000;
-  vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);*/
-  //write(1, "kernel\n", 7);
+  /* PRINTING TESTS */
+  //kprintf("char: %c\n", 'h');
+  //kprintf("integer: %d\n", 45);
+  //kprintf("hex: %x\n", 466);
+  //kprintf("pointer: %p, hex: %x,int: %d, char: %c\n", 382743, 3847, 45, 'g');
+  //kprintf("string: %s\n", "string");
 
-  /*char* line_test = NULL;
-  size_t line_size = 0;
-  kprintf("input to line test: \n");
-  getline(&line_test, &line_size);
-  kprintf("read: %s\n", line_test);*/
-
-  // Process modules
-  //run_exec_elf("init", modules_tag_global);
+  /* USER MODE TEST */
+  //uintptr_t test_page = 0x400000000;
+  //vm_map(read_cr3() & 0xFFFFFFFFFFFFF000, test_page, true, true, false);
+  
+  /* EXCEPTION TESTS */
+  //__asm__("int $0");
+  //__asm__("int $1");
+  //__asm__("int $2");
+  //__asm__("int $3");
+  //__asm__("int $4");
+  //__asm__("int $5");
+  //__asm__("int $6");
+  //__asm__("int $7");
+  //__asm__("int $8");
+  //__asm__("int $9");
+  //__asm__("int $10");
+  //__asm__("int $11");
+  //__asm__("int $12");
+  //__asm__("int $13");
+  //__asm__("int $14");
+  //__asm__("int $16");
+  //__asm__("int $15");
+  //__asm__("int $17");
+  //__asm__("int $18");
+  //__asm__("int $19");
+  //__asm__("int $20");
+  //__asm__("int $21");
+  
+  // Initialize the shell
   run_exec_elf("init", get_modules_tag());
-  //print_freelist(5);
-  while (1);
-  /*for (int i = 0; i < 5; i++) {
-    p = (int*) pmem_alloc();
-    kprintf("p: %p\n", p);
-  }
-  pmem_free((uintptr_t)p);
-  for (int i = 0; i < 5; i++) {
-    p = (int*) pmem_alloc();
-    kprintf("p: %p\n", p);
-  }
 
-  // Loop forever, reading characters
-  while (1) {
-    kprintf("%c", kgetc());
-  }*/
+  // Print error if loading init failed.
+  kprintf("Failed to load init. Hanging.\n");
 
 	// We're done, just hang...
 	halt();

@@ -106,20 +106,37 @@ void printf(const char* format, ...) {
   va_end(args);
 }
 
+/**
+* Obtains a line from standard input. Stops reading characters when a newline character is read.
+* If *lineptr is NULL or *n is 0, memory is allocated for the buffer and *n is set appropriately.
+* If *lineptr was not large enough to hold the line, it is automatically resized. *lineptr should
+* be freed when it is no longer used. This version does not include a parameter to specify the input
+* file.
+* 
+* \param lineptr Pointer to a character buffer that will hold the result.
+* \param n A pointer to the size of the lineptr buffer.
+* \returns The number of characters read, including the newline character.
+*/
 int64_t getline(char** lineptr, size_t* n) {
   if (*lineptr == NULL || *n == 0) {
     *lineptr = malloc(sizeof(char) * 120);
     *n = 120;
-  } else if (*lineptr == NULL) {
+  } /*else if (*lineptr == NULL) {
     *lineptr = malloc(sizeof(char) * *n);
-  }
+  } */
+  // Initialize variables for reading.
   int64_t num_read = -1;
   char current;
   char* cursor = *lineptr;
+  // Loop until a newline is read.
   while (1) {
+    // Read characters one at a time.
     read(0, &current, 1);
     //write(1, &current, 1);
     num_read++;
+    // If the size of *lineptr is equal to or less than 
+    // the number of characters read, double the size of the buffer
+    // and copy the characters that have been read so far into the new buffer.
     if (*n <= num_read) {
       *n *= 2;
       char* temp = *lineptr;
@@ -130,6 +147,8 @@ int64_t getline(char** lineptr, size_t* n) {
     }
     *cursor = current;
     cursor++;
+    // If the line has reached its end, add a null terminator after the newline 
+    // and exit the loop.
     if (current == '\n') {
       cursor[1] = '\0';
       break;
@@ -138,6 +157,11 @@ int64_t getline(char** lineptr, size_t* n) {
   return (num_read == 0 ? num_read : num_read + 1);
 }
 
+/**
+* Writes an error message to standard error.
+* 
+* \param s A string to print.
+*/
 void perror(const char *s) {
   write(2, s, stringlen(s));
 }

@@ -5,3 +5,4 @@ kernel/obj
 stdlib/obj
 stdlib/libc.a
 init/obj
+program/obj

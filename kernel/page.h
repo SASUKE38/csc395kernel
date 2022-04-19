@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdbool.h>
+
 #define PAGE_SIZE 0x1000
 
 /**
@@ -9,6 +11,9 @@
  */
 void print_freelist(int num_print);
 
+/** Reads the value of the cr0 register.
+* \returns The value of the cr0 register.
+*/
 uint64_t read_cr0();
 
 void write_cr0(uint64_t value);
@@ -19,6 +24,9 @@ void write_cr0(uint64_t value);
  */
 uintptr_t read_cr3();
 
+/** Writes a value to the cr3 register.
+* \param value The value to write
+*/
 void write_cr3(uint64_t value);
 
 /**
@@ -37,6 +45,14 @@ uintptr_t peek_freelist();
  */
 void translate(void* address);
 
+/**
+ * Initializes the system's freelist. 
+ * Takes an array of memory sections and adds all the pages in that section to the freelist.
+ *
+ * \param start Pointer that is the start of the current memory section.
+ * \param end Pointer that is the end of the current memory section.
+ * \param num_sections The number of memory sections to process.
+ */
 void freelist_init(uint64_t* start, uint64_t* end, uint16_t num_sections);
 /**
  * Allocate a page of physical memory.

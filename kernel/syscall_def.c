@@ -67,6 +67,7 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
   uintptr_t result = address_to_map;
   int64_t size_left = length;
   do {
+    //kprintf("loop, address_to_map: %p\n", address_to_map);
     // Allocate a requested page, set permissions to requested permissions
     if (vm_map(read_cr3(), address_to_map, 1, ((flags & 0x2) >> 1), ~(flags & 0x1) & 0x1) == false) {
       // Return -1 if the mapping failed
@@ -85,7 +86,7 @@ int64_t sys_exec(char* name) {
   return -1;
 }
 
-int64_t sys_exit() {
+int64_t sys_exit(uint64_t ex) {
   sys_exec("init");
   return -1;
 }

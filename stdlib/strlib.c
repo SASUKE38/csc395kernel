@@ -114,15 +114,19 @@ char* strsep(char** stringp, const char* delim) {
 char* strpbrk(const char* s, const char* accept) {
   char* result = (char*) s;
   bool found = false;
+  // Loop over the string.
   for ( ; *result != '\0'; result++) {
+    // Advance the result pointer until a match is found.....
     for (int j = 0; accept[j] != '\0'; j++) {
       if (*result == accept[j]) {
         found = true;
         break;
       }
     }
+    // Break out of the outer loop if a match was found.
     if (found) break;
   }
+  // Return the advanced pointer if a match was found, NULL otherwise.
   if (!found) return NULL;
   else return result;
 }

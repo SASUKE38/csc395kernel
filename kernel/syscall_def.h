@@ -8,4 +8,4 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
 
 int64_t sys_exec(char* name);
 
-int64_t sys_exit();
+int64_t sys_exit(uint64_t ex);

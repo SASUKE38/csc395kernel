@@ -9,7 +9,15 @@
 #include "gdt.h"
 #include "usermode_entry.h"
 
-void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
+/**
+ * Loads an ELF file from the kernel modules. 
+ *
+ * \param mod_name The name of the module to load.
+ * \param modules_tag A pointer to the stivale2 modules structure.
+ * \returns -1 if the requested file was not found, -2 if the file was not executable, 
+ * or -3 if the memory allocation failed.
+ */
+int32_t run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_tag) {
   // Get the number of modules
   uint16_t count = modules_tag->module_count;
   struct stivale2_module* current;
@@ -28,15 +36,15 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       phnum = elf_hdr->e_phnum;
       break;
     } else if (index >= count) {
-      kprintf("Load error: requested file not found in modules\n");
-      return;
+      //kprintf("Load error: requested file not found in modules\n");
+      return -1;
     }
   }
   unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
   // Make sure the file is executable
   if (elf_hdr->e_type != ET_EXEC) {
-    kprintf("Load error: attempted to execute non-executable ELF file\n");
-    return;
+    //kprintf("Load error: attempted to execute non-executable ELF file\n");
+    return -2;
   }
   
   // Loop over the program table entries and allocate memory for loadable segments
@@ -60,8 +68,8 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
       do {
         // Allocate a requested page, setting permissions to writable only for byte copying
         if (vm_map(read_cr3(), vaddr_to_map + (i * PAGE_SIZE), 0, 1, 1) == false) {
-          kprintf("Load error: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
-          return;
+          //kprintf("Load error: failed to allocate memory for requested page %p\n", elf_phdr->p_vaddr);
+          return -3;
         }
         size_left -= PAGE_SIZE;
         i++;
@@ -90,4 +98,5 @@ void run_exec_elf(char* mod_name, struct stivale2_struct_tag_modules* modules_ta
                   user_stack + user_stack_size - 8,   // Stack starts at the high address minus 8 bytes
                   USER_CODE_SELECTOR | 0x3,           // User code selector with priv=3
                   elf_hdr->e_entry);                  // Jump to the entry point specified in the ELF file
+  return 1;
   }

@@ -6,6 +6,7 @@
 
 #define BUFFER_SIZE 2000
 
+// Booleans that determine if a key is being pressed.
 bool left_shift = 0;
 bool right_shift = 0;
 bool num_lock = 0;
@@ -54,16 +55,25 @@ uint8_t alternate_keys[] = {27 /*escape*/, 33, 64, 35, 36, 37, 94, 38, 42, 40, 4
                   55, 56, 57 /*keypad 7-9*/, 45 /*keypad minus*/, 52, 53, 54 /*keypad 4-6*/, 43 /*keypad plus*/,
                   49, 50, 51, 48 /*keypad 1-3, 0*/, 46 /*keypad period*/, 147, 147, 147, 145, 146 /*F11, F12*/};
                   
+// The buffer holding pressed keys.
 uint8_t key_buffer[BUFFER_SIZE];
+// Position to read from.
 int buffer_read = 0;
+// Position to write from.
 int buffer_write = 0;
+// The number of characters in the buffer.
 volatile int buffer_count = 0;
 
-// Adds a character to the keyboard buffer. Returns the added character if successful, 0 otherwise.
+/**
+ * Adds a character to an externally maintained circular buffer of characters.
+ *
+ * \param key Character to add to the buffer.
+ * \returns The key that was added.
+ */
 char add_to_buffer(uint8_t key) {
   if (buffer_count != BUFFER_SIZE) {
     key_buffer[buffer_write++] = key;
-    buffer_write %= BUFFER_SIZE;
+    buffer_write %= BUFFER_SIZE; // Reset the position if needed
     buffer_count++;
     return key;
   }
@@ -120,6 +130,7 @@ void handle_press(uint8_t key_code) {
   } else {
     // handle caps lock
     if (caps_lock && left_shift == 0 && right_shift == 0) {
+      // Capitalize the character if it is a letter.
       if (isalpha(key)) {
         add_to_buffer(toupper(key));
         return;
@@ -131,13 +142,15 @@ void handle_press(uint8_t key_code) {
     }
     // handle shift
     if (left_shift || right_shift) {
-      if (caps_lock) { // don't capitalize if shift is pressed
+      if (caps_lock) { // don't capitalize if shift and caps lock are pressed
         add_to_buffer(key);
         return;
       }
+      // Capitalize the character if it is a letter.
       if (isalpha(key)) {
         add_to_buffer(toupper(key));
         return;
+      // Add the key's special character otherwise.
       } else {
         add_to_buffer(alternate_keys[key_code - 1]);
       }
@@ -158,9 +171,9 @@ void handle_press(uint8_t key_code) {
 char kgetc() {
   while (buffer_count == 0) {}
   char result = key_buffer[buffer_read++];
-  buffer_read %= BUFFER_SIZE;
+  buffer_read %= BUFFER_SIZE; // Reset the position if needed
   buffer_count--;
-  kprint_c(result);
+  kprint_c(result); // Print the obtained character to get getline and read to print input
   return result;
 }
 
