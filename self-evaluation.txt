@@ -1,12 +1,13 @@
 1. Input/Output - 3
 
-The kernel provides a kprintf function that supports the %c, %s, %d, %x, and %p flags, as seen by the tests in boot.c.
+The kernel provides a kprintf function that supports the %c, %s, %d, %x, and %p flags, as seen by the tests in boot.c. Commonly
+used keys are all supported, including shift and caps lock. The arrow keys and uncommon keys like print screen and home are not
+supported. If they are supposed to be supported, then this category should receive a 2.
 
 2. Exceptions - 3
 
 All of the standard exceptions have handlers set by the functions in idt.c. This is done by the kernel's call to idt_setup.
 Using the inline assembly in the commented-out exceptions test area of boot.c indicates that these handlers have been set up.
-
 
 3. Virtual Memory - 3
 
@@ -30,6 +31,9 @@ init runs correctly.
 
 The kernel, init, and test program all link against a standard library. The functions provided by the standard library can thus
 be called from these programs. These functions are not duplicated and include string utilities, system call wrappers, and I/O tools.
+These functions were tested as they were written, but the tests were not preserved. strsep can locate a newline in a string as 
+demonstrated by init. Note that strlen is renamed stringlen and string.h is renamed strlib.h. getline only has two parameters
+since the kernel cannot support reading from different files.
 
 7. User Mode - 3
 
@@ -45,9 +49,13 @@ which relaunches the shell once it finishes.
 
 9. Shell - 3
 
-init asks prints an indication that the shell has been launched, indicates it is awaiting user input by printing "> ", and launches a program from the kernel modules if the
-name specified by the user is in those modules. If the program is not found or some other memory error occurred, a different error message is displayed. If no input is given,
+init prints an indication that the shell has been launched, indicates it is awaiting user input by printing "> ", and launches a program from the kernel modules if the
+name specified by the user is in those modules. If the program is not found or some other error occurred, a different error message is displayed. If no input is given,
 input is requested again. The shell has some undesired behavior with backspace; backspace is not registered in read lines despite removing characters from the screen and the 
 shell prompt can be erased.
 
-10. Code Quality
+10. Code Quality - 3
+
+Code throughout the project is commented, and functions are split among files in a logical fashion. Standard library functions
+mirror their official file organization. Kernel files are organized by purpose. These files are usually relatively short.
+The loader, run_exec_elf, could be split into multiple functions to increase readability.

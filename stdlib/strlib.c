@@ -116,7 +116,7 @@ char* strpbrk(const char* s, const char* accept) {
   bool found = false;
   // Loop over the string.
   for ( ; *result != '\0'; result++) {
-    // Advance the result pointer until a match is found.....
+    // Advance the result pointer until a match is found.
     for (int j = 0; accept[j] != '\0'; j++) {
       if (*result == accept[j]) {
         found = true;

@@ -1,17 +1,26 @@
 #include <stdint.h>
 #include <strlib.h>
 #include <stdbool.h>
+#include <elf.h>
 
 #include "page.h"
 #include "kprint.h"
 #include "key.h"
 #include "loader.h"
-#include "elf.h"
 
 #define BACKSPACE 8
 
+// Stores location where mmap will map a page with no desired location.
 uintptr_t mmap_next_start = 0x9000000000;
 
+/**
+* Reads characters from a specified file and places them in a buffer. Internal/system call version.
+* 
+* \param fd The file descriptor to read from. Should be 0.
+* \param buf A pointer to store read characters in.
+* \param count The number of character to read.
+* \returns The number of characters read.
+*/
 int64_t sys_read(int16_t fd, void *buf, uint16_t count) {
   int64_t num_read = 0;
   char* result_buf = (char*) buf;
@@ -42,6 +51,14 @@ int64_t sys_read(int16_t fd, void *buf, uint16_t count) {
   return num_read;
 }
 
+/**
+* Writes characters from a buffer to a specified file. Internal/system call version.
+* 
+* \param fd The file descriptor to read from. Should be 1 or 2.
+* \param buf The buffer to write from.
+* \param count The number of character to write.
+* \returns The number of characters written.
+*/
 int64_t sys_write(int16_t fd, const void *buf, uint16_t count) {
   int64_t num_written = 0;
   char* cursor = (char*) buf;
@@ -56,6 +73,16 @@ int64_t sys_write(int16_t fd, const void *buf, uint16_t count) {
   return -1;
 }
 
+/** Maps a new page into the virtual address space of the calling process. Internal/system call version.
+* If addr is NULL, mmap chooses a page-aligned location to place the mapping.
+* \param addr The desired address at which the mapping should begin.
+* \param length The desired length of the mapping, in bytes. Rounded up to the next page internally.
+* \param prot Permissions to associate with the mapping. Defined above.
+* \param flags Flags to associate with the mapping. Disregarded in this simple implementation.
+* \param fd Contents of the mapping to add. Disregarded in this simple implementation.
+* \param offset Offset into the file at which the mapping should begin. Disregarded in this simple implementation.
+* \returns A pointer to the start of the mapped region.
+*/
 int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_t offset) {
   if (length <= 0) return -1; // length must be greater than 0
   uintptr_t address_to_map;
@@ -81,11 +108,22 @@ int64_t sys_mmap(void* addr, size_t length, int prot, int flags, int fd, uint16_
   return result;
 }
 
+/**
+* Loads a process. Internal/system call version.
+* 
+* \param name The name of the process to load.
+* \returns -1, since if this point is reached the process was not loaded.
+*/
 int64_t sys_exec(char* name) {
   run_exec_elf(name, get_modules_tag());
   return -1;
 }
 
+/** Terminates the calling process by loading the kernel's init program. Should be called by all processes
+* that terminate using this kernel. Internal/system call version.
+* \param ex The error code that the process exits with.
+* \returns nothing in normal execution, or -1 if the internal system call failed.
+*/
 int64_t sys_exit(uint64_t ex) {
   sys_exec("init");
   return -1;

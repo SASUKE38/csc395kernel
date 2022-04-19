@@ -1,10 +1,11 @@
 #include <strlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <elf.h>
+
 #include "kprint.h"
 #include "page.h"
 #include "stivale2.h"
-#include "elf.h"
 #include "loader.h"
 #include "gdt.h"
 #include "usermode_entry.h"

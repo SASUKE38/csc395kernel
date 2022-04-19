@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 #include "kprint.h"
-#include "ctype.h"
 
 #define BUFFER_SIZE 2000
 

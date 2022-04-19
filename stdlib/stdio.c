@@ -4,15 +4,27 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+/** Prints a character on the terminal.
+* \param c The character to print.
+*/
 void print_c(char c) {
   write(1, &c, 1);
 }
 
+/** Prints a string on the terminal.
+* \param str The string to print.
+*/
 void print_s(const char* str) {
   int length = stringlen(str);
   write(1, str, length);
 }
 
+/*inspiration to use number % base in print_d and print_x
+https://programmerall.com/article/50851418599/
+*/
+/** Prints an unsigned integer on the terminal.
+* \param value The unsigned integer to print.
+*/
 void print_d(uint64_t value){
   char arr[20];
   int counter = 0;
@@ -33,6 +45,9 @@ void print_d(uint64_t value){
   }
 }
 
+/** Prints an unsigned integer in hexadecimal on the terminal.
+* \param value The unsigned integer to print.
+*/
 void print_x(uint64_t value){
   char arr[20];
   int counter = 0;
@@ -55,12 +70,24 @@ void print_x(uint64_t value){
   }
 }
 
+/** Prints a pointer on the terminal.
+* \param value The pointer to print.
+*/
 void print_p(void* ptr) {
   uint64_t value = (uint64_t) ptr;
   print_s("0x");
   print_x(value);
 }
 
+/** Prints a formatted string on the terminal. Supported format specifiers include:
+* %c: char : character
+* %d: uint64_t : unsigned 64-bit integer
+* %s: const char* : string
+* %x: uint64_t : unsigned 64-bit integer in hexadecimal
+* %p void* : pointer
+* Instances of these in format are replaced by the next variadic argument.
+* \param format the string to format. Replaces format specifiers with next variadic argument.
+*/
 void printf(const char* format, ...) {
   // Start processing variadic arguments
   va_list args;

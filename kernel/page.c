@@ -288,7 +288,7 @@ bool vm_map(uintptr_t root, uintptr_t address, bool user, bool writable, bool ex
       if (new_ptr == 0) return false;
       // Zero out the new page
       memset((void*) phys_to_vir((void*)new_ptr), 0, PAGE_SIZE);
-      // Set values
+      // Set values based on which level the table is
       table[index].present = 1;
       table[index].user = (i == 1 ? user : 1);
       table[index].writable = (i == 1 ? writable : 1);

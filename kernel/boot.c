@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <strlib.h>
 #include <unistd.h>
-
 #include <stdio.h>
+#include <elf.h>
 
 #include "stivale2.h"
 #include "util.h"
@@ -16,7 +16,6 @@
 #include "key.h"
 #include "page.h"
 #include "syscall_def.h"
-#include "elf.h"
 #include "gdt.h"
 #include "usermode_entry.h"
 #include "loader.h"
@@ -91,7 +90,7 @@ void* find_tag(struct stivale2_struct* hdr, uint64_t id) {
 }
 
 /**
- * Prints memory usable by the kernel. 
+ * Prints memory ranges usable by the kernel. 
  * \param hdr Pointer to the stivale2 header structure provided by the bootloader.
  */
 void print_mem_address(struct stivale2_struct* hdr) {
@@ -165,7 +164,7 @@ struct stivale2_struct_tag_modules* get_modules_tag() {
 
 /**
  * Handles system calls by choosing the correct function to process a given call.
- * The arguments passed must match those of the handler function.
+ * The arguments passed should match those of the handler function.
  * \param nr The system call number.
  * \param arg0 The first argument to pass to the handler function.
  * \param arg1 The second argument to pass to the handler function.
@@ -201,6 +200,30 @@ int64_t syscall_handler(uint64_t nr, uint64_t arg0, uint64_t arg1, uint64_t arg2
   return rc;
 }
 
+/**
+ * Initializes the freelist.
+ * \param hdr A pointer to the stivale2 header.
+ */
+void mem_init(struct stivale2_struct* hdr) {
+  uint64_t get_addr_result[MAX_MEM_SECTIONS];
+  uint64_t start[MAX_MEM_SECTIONS];
+  uint64_t end[MAX_MEM_SECTIONS];
+  uint16_t num_read;
+
+  // Fill array to pass to freelist_init
+  num_read = get_mem_address(hdr, get_addr_result);
+  // Separate start and end addresses
+  int start_index = 0;
+  int end_index = 0;
+  for (int i = 0; i < num_read; i++) {
+    if (i % 2 == 0) start[start_index++] = get_addr_result[i];
+    else end[end_index++] = get_addr_result[i];
+  }
+  kprintf("Initializing freelist...\n");
+  freelist_init(start, end, (num_read / 2));
+  kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
+}
+
 //extern int64_t syscall(uint64_t nr, ...);
 // Assembly function to handle system calls. Calls syscall_handler.
 extern void syscall_entry();
@@ -211,9 +234,9 @@ void _start(struct stivale2_struct* hdr) {
   struct stivale2_struct_tag_hhdm* hhdm_tag = find_tag(hdr, HHDM_TAG_ID);
   hhdm_base_global = hhdm_tag->addr;
   // Find the module tag
-  //struct stivale2_struct_tag_modules* modules_tag = find_tag(hdr, MODULES_TAG_ID);
   modules_tag_global = find_tag(hdr, MODULES_TAG_ID);
 
+  // Initialize the terminal.
   term_init();
 
   // Initialize PIC
@@ -236,26 +259,14 @@ void _start(struct stivale2_struct* hdr) {
   cr0 |= 0x10000;
   write_cr0(cr0);
 
-  // Freelist initialization
-  uint64_t get_addr_result[MAX_MEM_SECTIONS];
-  uint64_t start[MAX_MEM_SECTIONS];
-  uint64_t end[MAX_MEM_SECTIONS];
-  uint16_t num_read;
+  // Freelist initialization. The code in this function was moved to its own function at the last minute
+  // so hopefully nothing broke.
+  mem_init(hdr);
 
-  // Fill array to pass to freelist_init
-  num_read = get_mem_address(hdr, get_addr_result);
-  // Separate start and end addresses
-  int start_index = 0;
-  int end_index = 0;
-  for (int i = 0; i < num_read; i++) {
-    if (i % 2 == 0) start[start_index++] = get_addr_result[i];
-    else end[end_index++] = get_addr_result[i];
-  }
-  kprintf("Initializing freelist...\n");
-  freelist_init(start, end, (num_read / 2));
-  kprintf("Freelist initialized with %d sections.\n", (num_read / 2));
+  // Unmap lower half.
   unmap_lower_half(read_cr3() & 0xFFFFFFFFFFFFF000);
-  // End freelist initialization
+
+  /* MMAP TESTS */
 
   /*int* test = (int*) mmap(NULL, 0x5000 + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   kprintf("test: %p\n", test);
